@@ -2,12 +2,16 @@
 Provides various authentication policies.
 """
 from __future__ import unicode_literals
+
 import base64
-from django.contrib.auth import authenticate
+import binascii
+
+from django.contrib.auth import authenticate, get_user_model
 from django.middleware.csrf import CsrfViewMiddleware
+from django.utils.six import text_type
 from django.utils.translation import ugettext_lazy as _
-from rest_framework import exceptions, HTTP_HEADER_ENCODING
-from rest_framework.authtoken.models import Token
+
+from rest_framework import HTTP_HEADER_ENCODING, exceptions
 
 
 def get_authorization_header(request):
@@ -17,7 +21,7 @@ def get_authorization_header(request):
     Hide some test client ickyness where the header can be unicode.
     """
     auth = request.META.get('HTTP_AUTHORIZATION', b'')
-    if isinstance(auth, type('')):
+    if isinstance(auth, text_type):
         # Work around django test client oddness
         auth = auth.encode(HTTP_HEADER_ENCODING)
     return auth
@@ -74,7 +78,7 @@ class BasicAuthentication(BaseAuthentication):
 
         try:
             auth_parts = base64.b64decode(auth[1]).decode(HTTP_HEADER_ENCODING).partition(':')
-        except (TypeError, UnicodeDecodeError):
+        except (TypeError, UnicodeDecodeError, binascii.Error):
             msg = _('Invalid basic header. Credentials not correctly base64 encoded.')
             raise exceptions.AuthenticationFailed(msg)
 
@@ -85,7 +89,11 @@ class BasicAuthentication(BaseAuthentication):
         """
         Authenticate the userid and password against username and password.
         """
-        user = authenticate(username=userid, password=password)
+        credentials = {
+            get_user_model().USERNAME_FIELD: userid,
+            'password': password
+        }
+        user = authenticate(**credentials)
 
         if user is None:
             raise exceptions.AuthenticationFailed(_('Invalid username/password.'))
@@ -110,9 +118,8 @@ class SessionAuthentication(BaseAuthentication):
         Otherwise returns `None`.
         """
 
-        # Get the underlying HttpRequest object
-        request = request._request
-        user = getattr(request, 'user', None)
+        # Get the session-based user from the underlying HttpRequest object
+        user = getattr(request._request, 'user', None)
 
         # Unauthenticated, CSRF validation not required
         if not user or not user.is_active:
@@ -143,7 +150,15 @@ class TokenAuthentication(BaseAuthentication):
         Authorization: Token 401f7ac837da42b97f613d789819ff93537bee6a
     """
 
-    model = Token
+    keyword = 'Token'
+    model = None
+
+    def get_model(self):
+        if self.model is not None:
+            return self.model
+        from rest_framework.authtoken.models import Token
+        return Token
+
     """
     A custom token model may be used, but must have the following properties.
 
@@ -154,7 +169,7 @@ class TokenAuthentication(BaseAuthentication):
     def authenticate(self, request):
         auth = get_authorization_header(request).split()
 
-        if not auth or auth[0].lower() != b'token':
+        if not auth or auth[0].lower() != self.keyword.lower().encode():
             return None
 
         if len(auth) == 1:
@@ -164,12 +179,19 @@ class TokenAuthentication(BaseAuthentication):
             msg = _('Invalid token header. Token string should not contain spaces.')
             raise exceptions.AuthenticationFailed(msg)
 
-        return self.authenticate_credentials(auth[1])
+        try:
+            token = auth[1].decode()
+        except UnicodeError:
+            msg = _('Invalid token header. Token string should not contain invalid characters.')
+            raise exceptions.AuthenticationFailed(msg)
+
+        return self.authenticate_credentials(token)
 
     def authenticate_credentials(self, key):
+        model = self.get_model()
         try:
-            token = self.model.objects.select_related('user').get(key=key)
-        except self.model.DoesNotExist:
+            token = model.objects.select_related('user').get(key=key)
+        except model.DoesNotExist:
             raise exceptions.AuthenticationFailed(_('Invalid token.'))
 
         if not token.user.is_active:
@@ -178,4 +200,4 @@ class TokenAuthentication(BaseAuthentication):
         return (token.user, token)
 
     def authenticate_header(self, request):
-        return 'Token'
+        return self.keyword

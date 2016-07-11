@@ -1,13 +1,17 @@
 from __future__ import unicode_literals
-import django
+
+import pytest
 from django.db import models
 from django.shortcuts import get_object_or_404
 from django.test import TestCase
 from django.utils import six
+
 from rest_framework import generics, renderers, serializers, status
+from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
-from tests.models import BasicModel, RESTFrameworkModel
-from tests.models import ForeignKeySource, ForeignKeyTarget
+from tests.models import (
+    BasicModel, ForeignKeySource, ForeignKeyTarget, RESTFrameworkModel
+)
 
 factory = APIRequestFactory()
 
@@ -29,11 +33,13 @@ class Comment(RESTFrameworkModel):
 class BasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = BasicModel
+        fields = '__all__'
 
 
 class ForeignKeySerializer(serializers.ModelSerializer):
     class Meta:
         model = ForeignKeySource
+        fields = '__all__'
 
 
 class SlugSerializer(serializers.ModelSerializer):
@@ -142,8 +148,18 @@ class TestRootView(TestCase):
         created = self.objects.get(id=4)
         self.assertEqual(created.text, 'foobar')
 
+    def test_post_error_root_view(self):
+        """
+        POST requests to ListCreateAPIView in HTML should include a form error.
+        """
+        data = {'text': 'foobar' * 100}
+        request = factory.post('/', data, HTTP_ACCEPT='text/html')
+        response = self.view(request).render()
+        expected_error = '<span class="help-block">Ensure this field has no more than 100 characters.</span>'
+        self.assertIn(expected_error, response.rendered_content.decode('utf-8'))
 
-EXPECTED_QUERIES_FOR_PUT = 3 if django.VERSION < (1, 6) else 2
+
+EXPECTED_QUERIES_FOR_PUT = 2
 
 
 class TestInstanceView(TestCase):
@@ -279,6 +295,16 @@ class TestInstanceView(TestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertFalse(self.objects.filter(id=999).exists())
 
+    def test_put_error_instance_view(self):
+        """
+        Incorrect PUT requests in HTML should include a form error.
+        """
+        data = {'text': 'foobar' * 100}
+        request = factory.put('/', data, HTTP_ACCEPT='text/html')
+        response = self.view(request, pk=1).render()
+        expected_error = '<span class="help-block">Ensure this field has no more than 100 characters.</span>'
+        self.assertIn(expected_error, response.rendered_content.decode('utf-8'))
+
 
 class TestFKInstanceView(TestCase):
     def setUp(self):
@@ -390,6 +416,7 @@ class ClassASerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClassA
+        fields = '__all__'
 
 
 class ExampleView(generics.ListCreateAPIView):
@@ -437,6 +464,7 @@ class DynamicSerializerView(generics.ListCreateAPIView):
             class DynamicSerializer(serializers.ModelSerializer):
                 class Meta:
                     model = TwoFieldModel
+                    fields = '__all__'
         return DynamicSerializer
 
 
@@ -504,3 +532,17 @@ class TestFilterBackendAppliedToViews(TestCase):
         response = view(request).render()
         self.assertContains(response, 'field_b')
         self.assertNotContains(response, 'field_a')
+
+
+class TestGuardedQueryset(TestCase):
+    def test_guarded_queryset(self):
+        class QuerysetAccessError(generics.ListAPIView):
+            queryset = BasicModel.objects.all()
+
+            def get(self, request):
+                return Response(list(self.queryset))
+
+        view = QuerysetAccessError.as_view()
+        request = factory.get('/')
+        with pytest.raises(RuntimeError):
+            view(request).render()

@@ -33,12 +33,12 @@ Some tips on good issue reporting:
 * When describing issues try to phrase your ticket in terms of the *behavior* you think needs changing rather than the *code* you think need changing.
 * Search the issue list first for related items, and make sure you're running the latest version of REST framework before reporting an issue.
 * If reporting a bug, then try to include a pull request with a failing test case.  This will help us quickly identify if there is a valid issue, and make sure that it gets fixed more quickly if there is one.
-* Feature requests will often be closed with a recommendation that they be implemented outside of the core REST framework library.  Keeping new feature requests implemented as third party libraries allows us to keep down the maintenance overhead of REST framework, so that the focus can be on continued stability, bugfixes, and great documentation.
+* Feature requests will often be closed with a recommendation that they be implemented outside of the core REST framework library.  Keeping new feature requests implemented as third party libraries allows us to keep down the maintenance overhead of REST framework, so that the focus can be on continued stability, bug fixes, and great documentation.
 * Closing an issue doesn't necessarily mean the end of a discussion.  If you believe your issue has been closed incorrectly, explain why and we'll consider if it needs to be reopened.
 
 ## Triaging issues
 
-Getting involved in triaging incoming issues is a good way to start contributing.  Every single ticket that comes into the ticket tracker needs to be reviewed in order to determine what the next steps should be.  Anyone can help out with this, you just need to be willing to
+Getting involved in triaging incoming issues is a good way to start contributing.  Every single ticket that comes into the ticket tracker needs to be reviewed in order to determine what the next steps should be.  Anyone can help out with this, you just need to be willing to:
 
 * Read through the ticket - does it make sense, is it missing any context that would help explain it better?
 * Is the ticket reported in the correct place, would it be better suited as a discussion on the discussion group?
@@ -117,10 +117,6 @@ GitHub's documentation for working on pull requests is [available here][pull-req
 Always run the tests before submitting pull requests, and ideally run `tox` in order to check that your modifications are compatible with both Python 2 and Python 3, and that they run properly on all supported versions of Django.
 
 Once you've made a pull request take a look at the Travis build status in the GitHub interface and make sure the tests are running as you'd expect.
-
-![Travis status][travis-status]
-
-*Above: Travis build notifications*
 
 ## Managing compatibility issues
 
@@ -203,9 +199,8 @@ If you want to draw attention to a note or warning, use a pair of enclosing line
 [so-filter]: http://stackexchange.com/filters/66475/rest-framework
 [issues]: https://github.com/tomchristie/django-rest-framework/issues?state=open
 [pep-8]: http://www.python.org/dev/peps/pep-0008/
-[travis-status]: ../img/travis-status.png
 [pull-requests]: https://help.github.com/articles/using-pull-requests
-[tox]: http://tox.readthedocs.org/en/latest/
+[tox]: https://tox.readthedocs.io/en/latest/
 [markdown]: http://daringfireball.net/projects/markdown/basics
 [docs]: https://github.com/tomchristie/django-rest-framework/tree/master/docs
 [mou]: http://mouapp.com/

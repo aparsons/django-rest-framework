@@ -36,7 +36,7 @@ The `api_settings` object will check for any user-defined settings, and otherwis
 
 ## API policy settings
 
-*The following settings control the basic API policies, and are applied to every `APIView` class based view, or `@api_view` function based view.*
+*The following settings control the basic API policies, and are applied to every `APIView` class-based view, or `@api_view` function based view.*
 
 #### DEFAULT_RENDERER_CLASSES
 
@@ -98,13 +98,19 @@ Default: `'rest_framework.negotiation.DefaultContentNegotiation'`
 
 ## Generic view settings
 
-*The following settings control the behavior of the generic class based views.*
+*The following settings control the behavior of the generic class-based views.*
 
 #### DEFAULT_PAGINATION_SERIALIZER_CLASS
 
-A class the determines the default serialization style for paginated responses.
+---
 
-Default: `rest_framework.pagination.PaginationSerializer`
+**This setting has been removed.**
+
+The pagination API does not use serializers to determine the output format, and
+you'll need to instead override the `get_paginated_response method on a
+pagination class in order to specify how the output format is controlled.
+
+---
 
 #### DEFAULT_FILTER_BACKENDS
 
@@ -113,44 +119,39 @@ If set to `None` then generic filtering is disabled.
 
 #### PAGINATE_BY
 
+---
+
+**This setting has been removed.**
+
+See the pagination documentation for further guidance on [setting the pagination style](pagination.md#modifying-the-pagination-style).
+
+---
+
+#### PAGE_SIZE
+
 The default page size to use for pagination.  If set to `None`, pagination is disabled by default.
 
 Default: `None`
 
 #### PAGINATE_BY_PARAM
 
-The name of a query parameter, which can be used by the client to override the default page size to use for pagination.  If set to `None`, clients may not override the default page size.
+---
 
-For example, given the following settings:
+**This setting has been removed.**
 
-    REST_FRAMEWORK = {
-    	'PAGINATE_BY': 10,
-    	'PAGINATE_BY_PARAM': 'page_size',
-    }
+See the pagination documentation for further guidance on [setting the pagination style](pagination.md#modifying-the-pagination-style).
 
-A client would be able to modify the pagination size by using the `page_size` query parameter.  For example:
-
-    GET http://example.com/api/accounts?page_size=25
-
-Default: `None`
+---
 
 #### MAX_PAGINATE_BY
 
-The maximum page size to allow when the page size is specified by the client.  If set to `None`, then no maximum limit is applied.
+---
 
-For example, given the following settings:
+**This setting is pending deprecation.**
 
-    REST_FRAMEWORK = {
-    	'PAGINATE_BY': 10,
-    	'PAGINATE_BY_PARAM': 'page_size',
-        'MAX_PAGINATE_BY': 100
-    }
+See the pagination documentation for further guidance on [setting the pagination style](pagination.md#modifying-the-pagination-style).
 
-A client request like the following would return a paginated list of up to 100 items.
-
-    GET http://example.com/api/accounts?page_size=999
-
-Default: `None`
+---
 
 ### SEARCH_PARAM
 
@@ -233,45 +234,23 @@ Default:
 
 ---
 
-## Browser overrides
-
-*The following settings provide URL or form-based overrides of the default browser behavior.*
-
-#### FORM_METHOD_OVERRIDE
-
-The name of a form field that may be used to override the HTTP method of the form.
-
-If the value of this setting is `None` then form method overloading will be disabled.
-
-Default: `'_method'`
-
-#### FORM_CONTENT_OVERRIDE
-
-The name of a form field that may be used to override the content of the form payload.  Must be used together with `FORM_CONTENTTYPE_OVERRIDE`.
-
-If either setting is `None` then form content overloading will be disabled.
-
-Default: `'_content'`
-
-#### FORM_CONTENTTYPE_OVERRIDE
-
-The name of a form field that may be used to override the content type of the form payload.  Must be used together with `FORM_CONTENT_OVERRIDE`.
-
-If either setting is `None` then form content overloading will be disabled.
-
-Default: `'_content_type'`
-
-#### URL_ACCEPT_OVERRIDE
-
-The name of a URL parameter that may be used to override the HTTP `Accept` header.
-
-If the value of this setting is `None` then URL accept overloading will be disabled.
-
-Default: `'accept'`
+## Content type controls
 
 #### URL_FORMAT_OVERRIDE
 
-The name of a URL parameter that may be used to override the default `Accept` header based content negotiation.
+The name of a URL parameter that may be used to override the default content negotiation `Accept` header behavior, by using a `format=…` query parameter in the request URL.
+
+For example: `http://example.com/organizations/?format=csv`
+
+If the value of this setting is `None` then URL format overrides will be disabled.
+
+Default: `'format'`
+
+#### FORMAT_SUFFIX_KWARG
+
+The name of a parameter in the URL conf that may be used to provide a format suffix. This setting is applied when using `format_suffix_patterns` to include suffixed URL patterns.
+
+For example: `http://example.com/organizations.csv/`
 
 Default: `'format'`
 
@@ -432,12 +411,6 @@ Default: `'non_field_errors'`
 A string representing the key that should be used for the URL fields generated by `HyperlinkedModelSerializer`.
 
 Default: `'url'`
-
-#### FORMAT_SUFFIX_KWARG
-
-The name of a parameter in the URL conf that may be used to provide a format suffix.
-
-Default: `'format'`
 
 #### NUM_PROXIES
 

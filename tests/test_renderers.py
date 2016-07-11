@@ -1,25 +1,26 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from django.conf.urls import patterns, url, include
-from django.core.cache import cache
-from django.db import models
-from django.test import TestCase
-from django.utils import six
-from django.utils.translation import ugettext_lazy as _
-from rest_framework import status, permissions
-from rest_framework.compat import OrderedDict
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework import serializers
-from rest_framework.renderers import (
-    BaseRenderer, JSONRenderer, BrowsableAPIRenderer, HTMLFormRenderer
-)
-from rest_framework.settings import api_settings
-from rest_framework.test import APIRequestFactory
-from collections import MutableMapping
+
 import json
 import re
+from collections import MutableMapping, OrderedDict
 
+from django.conf.urls import include, url
+from django.core.cache import cache
+from django.db import models
+from django.test import TestCase, override_settings
+from django.utils import six
+from django.utils.safestring import SafeText
+from django.utils.translation import ugettext_lazy as _
+
+from rest_framework import permissions, serializers, status
+from rest_framework.renderers import (
+    BaseRenderer, BrowsableAPIRenderer, HTMLFormRenderer, JSONRenderer
+)
+from rest_framework.response import Response
+from rest_framework.settings import api_settings
+from rest_framework.test import APIRequestFactory
+from rest_framework.views import APIView
 
 DUMMYSTATUS = status.HTTP_200_OK
 DUMMYCONTENT = 'dummycontent'
@@ -80,7 +81,7 @@ class MockGETView(APIView):
 
 class MockPOSTView(APIView):
     def post(self, request, **kwargs):
-        return Response({'foo': request.DATA})
+        return Response({'foo': request.data})
 
 
 class EmptyGETView(APIView):
@@ -103,8 +104,7 @@ class HTMLView1(APIView):
     def get(self, request, **kwargs):
         return Response('text')
 
-urlpatterns = patterns(
-    '',
+urlpatterns = [
     url(r'^.*\.(?P<format>.+)$', MockView.as_view(renderer_classes=[RendererA, RendererB])),
     url(r'^$', MockView.as_view(renderer_classes=[RendererA, RendererB])),
     url(r'^cache$', MockGETView.as_view()),
@@ -113,7 +113,7 @@ urlpatterns = patterns(
     url(r'^html1$', HTMLView1.as_view()),
     url(r'^empty$', EmptyGETView.as_view()),
     url(r'^api', include('rest_framework.urls', namespace='rest_framework'))
-)
+]
 
 
 class POSTDeniedPermission(permissions.BasePermission):
@@ -148,13 +148,11 @@ class DocumentingRendererTests(TestCase):
         self.assertContains(response, '>PATCH<')
 
 
+@override_settings(ROOT_URLCONF='tests.test_renderers')
 class RendererEndToEndTests(TestCase):
     """
     End-to-end testing of renderers using an RendererMixin on a generic view.
     """
-
-    urls = 'tests.test_renderers'
-
     def test_default_renderer_serializes_content(self):
         """If the Accept header is not set the default renderer should serialize the response."""
         resp = self.client.get('/')
@@ -188,17 +186,6 @@ class RendererEndToEndTests(TestCase):
         """If the Accept header is set the specified renderer should serialize the response.
         (In this case we check that works for a non-default renderer)"""
         resp = self.client.get('/', HTTP_ACCEPT=RendererB.media_type)
-        self.assertEqual(resp['Content-Type'], RendererB.media_type + '; charset=utf-8')
-        self.assertEqual(resp.content, RENDERER_B_SERIALIZER(DUMMYCONTENT))
-        self.assertEqual(resp.status_code, DUMMYSTATUS)
-
-    def test_specified_renderer_serializes_content_on_accept_query(self):
-        """The '_accept' query string should behave in the same way as the Accept header."""
-        param = '?%s=%s' % (
-            api_settings.URL_ACCEPT_OVERRIDE,
-            RendererB.media_type
-        )
-        resp = self.client.get('/' + param)
         self.assertEqual(resp['Content-Type'], RendererB.media_type + '; charset=utf-8')
         self.assertEqual(resp.content, RENDERER_B_SERIALIZER(DUMMYCONTENT))
         self.assertEqual(resp.status_code, DUMMYSTATUS)
@@ -408,13 +395,11 @@ class AsciiJSONRendererTests(TestCase):
 
 
 # Tests for caching issue, #346
+@override_settings(ROOT_URLCONF='tests.test_renderers')
 class CacheRenderTest(TestCase):
     """
     Tests specific to caching responses
     """
-
-    urls = 'tests.test_renderers'
-
     def test_head_caching(self):
         """
         Test caching of HEAD requests
@@ -471,3 +456,28 @@ class TestHiddenFieldHTMLFormRenderer(TestCase):
         field = serializer['published']
         rendered = renderer.render_field(field, {})
         assert rendered == ''
+
+
+class TestHTMLFormRenderer(TestCase):
+    def setUp(self):
+        class TestSerializer(serializers.Serializer):
+            test_field = serializers.CharField()
+
+        self.renderer = HTMLFormRenderer()
+        self.serializer = TestSerializer(data={})
+
+    def test_render_with_default_args(self):
+        self.serializer.is_valid()
+        renderer = HTMLFormRenderer()
+
+        result = renderer.render(self.serializer.data)
+
+        self.assertIsInstance(result, SafeText)
+
+    def test_render_with_provided_args(self):
+        self.serializer.is_valid()
+        renderer = HTMLFormRenderer()
+
+        result = renderer.render(self.serializer.data, None, {})
+
+        self.assertIsInstance(result, SafeText)

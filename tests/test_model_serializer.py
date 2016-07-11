@@ -6,11 +6,19 @@ These tests deal with ensuring that we correctly map the model fields onto
 an appropriate set of serializer fields for each case.
 """
 from __future__ import unicode_literals
+
+import decimal
+from collections import OrderedDict
+
 from django.core.exceptions import ImproperlyConfigured
-from django.core.validators import MaxValueValidator, MinValueValidator, MinLengthValidator
+from django.core.validators import (
+    MaxValueValidator, MinLengthValidator, MinValueValidator
+)
 from django.db import models
+from django.db.models import DurationField as ModelDurationField
 from django.test import TestCase
 from django.utils import six
+
 from rest_framework import serializers
 from rest_framework.compat import unicode_repr
 
@@ -53,16 +61,18 @@ class RegularFieldsModel(models.Model):
     positive_small_integer_field = models.PositiveSmallIntegerField()
     slug_field = models.SlugField(max_length=100)
     small_integer_field = models.SmallIntegerField()
-    text_field = models.TextField()
+    text_field = models.TextField(max_length=100)
     time_field = models.TimeField()
     url_field = models.URLField(max_length=100)
     custom_field = CustomField()
+    file_path_field = models.FilePathField(path='/tmp/')
 
     def method(self):
         return 'method'
 
 
 COLOR_CHOICES = (('red', 'Red'), ('blue', 'Blue'), ('green', 'Green'))
+DECIMAL_CHOICES = (('low', decimal.Decimal('0.1')), ('medium', decimal.Decimal('0.5')), ('high', decimal.Decimal('0.9')))
 
 
 class FieldOptionsModel(models.Model):
@@ -73,6 +83,10 @@ class FieldOptionsModel(models.Model):
     default_field = models.IntegerField(default=0)
     descriptive_field = models.IntegerField(help_text='Some help text', verbose_name='A label')
     choices_field = models.CharField(max_length=100, choices=COLOR_CHOICES)
+
+
+class ChoicesModel(models.Model):
+    choices_field_with_nonstandard_args = models.DecimalField(max_digits=3, decimal_places=1, choices=DECIMAL_CHOICES, verbose_name='A label')
 
 
 class TestModelSerializer(TestCase):
@@ -127,6 +141,7 @@ class TestRegularFieldMappings(TestCase):
         class TestSerializer(serializers.ModelSerializer):
             class Meta:
                 model = RegularFieldsModel
+                fields = '__all__'
 
         expected = dedent("""
             TestSerializer():
@@ -146,17 +161,20 @@ class TestRegularFieldMappings(TestCase):
                 positive_small_integer_field = IntegerField()
                 slug_field = SlugField(max_length=100)
                 small_integer_field = IntegerField()
-                text_field = CharField(style={'base_template': 'textarea.html'})
+                text_field = CharField(max_length=100, style={'base_template': 'textarea.html'})
                 time_field = TimeField()
                 url_field = URLField(max_length=100)
                 custom_field = ModelField(model_field=<tests.test_model_serializer.CustomField: custom_field>)
+                file_path_field = FilePathField(path='/tmp/')
         """)
+
         self.assertEqual(unicode_repr(TestSerializer()), expected)
 
     def test_field_options(self):
         class TestSerializer(serializers.ModelSerializer):
             class Meta:
                 model = FieldOptionsModel
+                fields = '__all__'
 
         expected = dedent("""
             TestSerializer():
@@ -167,7 +185,7 @@ class TestRegularFieldMappings(TestCase):
                 null_field = IntegerField(allow_null=True, required=False)
                 default_field = IntegerField(required=False)
                 descriptive_field = IntegerField(help_text='Some help text', label='A label')
-                choices_field = ChoiceField(choices=[('red', 'Red'), ('blue', 'Blue'), ('green', 'Green')])
+                choices_field = ChoiceField(choices=(('red', 'Red'), ('blue', 'Blue'), ('green', 'Green')))
         """)
         if six.PY2:
             # This particular case is too awkward to resolve fully across
@@ -228,6 +246,23 @@ class TestRegularFieldMappings(TestCase):
         """)
         self.assertEqual(repr(TestSerializer()), expected)
 
+    def test_extra_field_kwargs_required(self):
+        """
+        Ensure `extra_kwargs` are passed to generated fields.
+        """
+        class TestSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = RegularFieldsModel
+                fields = ('auto_field', 'char_field')
+                extra_kwargs = {'auto_field': {'required': False, 'read_only': False}}
+
+        expected = dedent("""
+            TestSerializer():
+                auto_field = IntegerField(read_only=False, required=False)
+                char_field = CharField(max_length=100)
+        """)
+        self.assertEqual(repr(TestSerializer()), expected)
+
     def test_invalid_field(self):
         """
         Field names that do not map to a model field or relationship should
@@ -273,6 +308,7 @@ class TestRegularFieldMappings(TestCase):
 
             class Meta:
                 model = RegularFieldsModel
+                fields = '__all__'
 
         class ChildSerializer(TestSerializer):
             missing = serializers.ReadOnlyField()
@@ -282,6 +318,68 @@ class TestRegularFieldMappings(TestCase):
                 fields = ('auto_field',)
 
         ChildSerializer().fields
+
+    def test_choices_with_nonstandard_args(self):
+        class ExampleSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = ChoicesModel
+                fields = '__all__'
+
+        ExampleSerializer()
+
+    def test_fields_and_exclude_behavior(self):
+        class ImplicitFieldsSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = RegularFieldsModel
+                fields = '__all__'
+
+        class ExplicitFieldsSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = RegularFieldsModel
+                fields = '__all__'
+
+        implicit = ImplicitFieldsSerializer()
+        explicit = ExplicitFieldsSerializer()
+
+        assert implicit.data == explicit.data
+
+
+class TestDurationFieldMapping(TestCase):
+    def test_duration_field(self):
+        class DurationFieldModel(models.Model):
+            """
+            A model that defines DurationField.
+            """
+            duration_field = ModelDurationField()
+
+        class TestSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = DurationFieldModel
+                fields = '__all__'
+
+        expected = dedent("""
+            TestSerializer():
+                id = IntegerField(label='ID', read_only=True)
+                duration_field = DurationField()
+        """)
+        self.assertEqual(unicode_repr(TestSerializer()), expected)
+
+
+class TestGenericIPAddressFieldValidation(TestCase):
+    def test_ip_address_validation(self):
+        class IPAddressFieldModel(models.Model):
+            address = models.GenericIPAddressField()
+
+        class TestSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = IPAddressFieldModel
+                fields = '__all__'
+
+        s = TestSerializer(data={'address': 'not an ip address'})
+        self.assertFalse(s.is_valid())
+        self.assertEquals(1, len(s.errors['address']),
+                          'Unexpected number of validation errors: '
+                          '{0}'.format(s.errors))
 
 
 # Tests for relational field mappings.
@@ -305,15 +403,23 @@ class ThroughTargetModel(models.Model):
 
 class Supplementary(models.Model):
     extra = models.IntegerField()
-    forwards = models.ForeignKey('ThroughTargetModel')
-    backwards = models.ForeignKey('RelationalModel')
+    forwards = models.ForeignKey('ThroughTargetModel', on_delete=models.CASCADE)
+    backwards = models.ForeignKey('RelationalModel', on_delete=models.CASCADE)
 
 
 class RelationalModel(models.Model):
-    foreign_key = models.ForeignKey(ForeignKeyTargetModel, related_name='reverse_foreign_key')
+    foreign_key = models.ForeignKey(ForeignKeyTargetModel, related_name='reverse_foreign_key', on_delete=models.CASCADE)
     many_to_many = models.ManyToManyField(ManyToManyTargetModel, related_name='reverse_many_to_many')
-    one_to_one = models.OneToOneField(OneToOneTargetModel, related_name='reverse_one_to_one')
+    one_to_one = models.OneToOneField(OneToOneTargetModel, related_name='reverse_one_to_one', on_delete=models.CASCADE)
     through = models.ManyToManyField(ThroughTargetModel, through=Supplementary, related_name='reverse_through')
+
+
+class UniqueTogetherModel(models.Model):
+    foreign_key = models.ForeignKey(ForeignKeyTargetModel, related_name='unique_foreign_key', on_delete=models.CASCADE)
+    one_to_one = models.OneToOneField(OneToOneTargetModel, related_name='unique_one_to_one', on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ("foreign_key", "one_to_one")
 
 
 class TestRelationalFieldMappings(TestCase):
@@ -321,13 +427,14 @@ class TestRelationalFieldMappings(TestCase):
         class TestSerializer(serializers.ModelSerializer):
             class Meta:
                 model = RelationalModel
+                fields = '__all__'
 
         expected = dedent("""
             TestSerializer():
                 id = IntegerField(label='ID', read_only=True)
                 foreign_key = PrimaryKeyRelatedField(queryset=ForeignKeyTargetModel.objects.all())
                 one_to_one = PrimaryKeyRelatedField(queryset=OneToOneTargetModel.objects.all(), validators=[<UniqueValidator(queryset=RelationalModel.objects.all())>])
-                many_to_many = PrimaryKeyRelatedField(many=True, queryset=ManyToManyTargetModel.objects.all())
+                many_to_many = PrimaryKeyRelatedField(allow_empty=False, many=True, queryset=ManyToManyTargetModel.objects.all())
                 through = PrimaryKeyRelatedField(many=True, read_only=True)
         """)
         self.assertEqual(unicode_repr(TestSerializer()), expected)
@@ -337,6 +444,7 @@ class TestRelationalFieldMappings(TestCase):
             class Meta:
                 model = RelationalModel
                 depth = 1
+                fields = '__all__'
 
         expected = dedent("""
             TestSerializer():
@@ -360,13 +468,14 @@ class TestRelationalFieldMappings(TestCase):
         class TestSerializer(serializers.HyperlinkedModelSerializer):
             class Meta:
                 model = RelationalModel
+                fields = '__all__'
 
         expected = dedent("""
             TestSerializer():
                 url = HyperlinkedIdentityField(view_name='relationalmodel-detail')
                 foreign_key = HyperlinkedRelatedField(queryset=ForeignKeyTargetModel.objects.all(), view_name='foreignkeytargetmodel-detail')
                 one_to_one = HyperlinkedRelatedField(queryset=OneToOneTargetModel.objects.all(), validators=[<UniqueValidator(queryset=RelationalModel.objects.all())>], view_name='onetoonetargetmodel-detail')
-                many_to_many = HyperlinkedRelatedField(many=True, queryset=ManyToManyTargetModel.objects.all(), view_name='manytomanytargetmodel-detail')
+                many_to_many = HyperlinkedRelatedField(allow_empty=False, many=True, queryset=ManyToManyTargetModel.objects.all(), view_name='manytomanytargetmodel-detail')
                 through = HyperlinkedRelatedField(many=True, read_only=True, view_name='throughtargetmodel-detail')
         """)
         self.assertEqual(unicode_repr(TestSerializer()), expected)
@@ -376,6 +485,7 @@ class TestRelationalFieldMappings(TestCase):
             class Meta:
                 model = RelationalModel
                 depth = 1
+                fields = '__all__'
 
         expected = dedent("""
             TestSerializer():
@@ -393,6 +503,32 @@ class TestRelationalFieldMappings(TestCase):
                     url = HyperlinkedIdentityField(view_name='throughtargetmodel-detail')
                     name = CharField(max_length=100)
         """)
+        self.assertEqual(unicode_repr(TestSerializer()), expected)
+
+    def test_nested_unique_together_relations(self):
+        class TestSerializer(serializers.HyperlinkedModelSerializer):
+            class Meta:
+                model = UniqueTogetherModel
+                depth = 1
+                fields = '__all__'
+
+        expected = dedent("""
+            TestSerializer():
+                url = HyperlinkedIdentityField(view_name='uniquetogethermodel-detail')
+                foreign_key = NestedSerializer(read_only=True):
+                    url = HyperlinkedIdentityField(view_name='foreignkeytargetmodel-detail')
+                    name = CharField(max_length=100)
+                one_to_one = NestedSerializer(read_only=True):
+                    url = HyperlinkedIdentityField(view_name='onetoonetargetmodel-detail')
+                    name = CharField(max_length=100)
+        """)
+        if six.PY2:
+            # This case is also too awkward to resolve fully across both py2
+            # and py3.  (See above)
+            expected = expected.replace(
+                "('foreign_key', 'one_to_one')",
+                "(u'foreign_key', u'one_to_one')"
+            )
         self.assertEqual(unicode_repr(TestSerializer()), expected)
 
     def test_pk_reverse_foreign_key(self):
@@ -452,6 +588,52 @@ class TestRelationalFieldMappings(TestCase):
         self.assertEqual(unicode_repr(TestSerializer()), expected)
 
 
+class DisplayValueTargetModel(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return '%s Color' % (self.name)
+
+
+class DisplayValueModel(models.Model):
+    color = models.ForeignKey(DisplayValueTargetModel, on_delete=models.CASCADE)
+
+
+class TestRelationalFieldDisplayValue(TestCase):
+    def setUp(self):
+        DisplayValueTargetModel.objects.bulk_create([
+            DisplayValueTargetModel(name='Red'),
+            DisplayValueTargetModel(name='Yellow'),
+            DisplayValueTargetModel(name='Green'),
+        ])
+
+    def test_default_display_value(self):
+        class TestSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = DisplayValueModel
+                fields = '__all__'
+
+        serializer = TestSerializer()
+        expected = OrderedDict([('1', 'Red Color'), ('2', 'Yellow Color'), ('3', 'Green Color')])
+        self.assertEqual(serializer.fields['color'].choices, expected)
+
+    def test_custom_display_value(self):
+        class TestField(serializers.PrimaryKeyRelatedField):
+            def display_value(self, instance):
+                return 'My %s Color' % (instance.name)
+
+        class TestSerializer(serializers.ModelSerializer):
+            color = TestField(queryset=DisplayValueTargetModel.objects.all())
+
+            class Meta:
+                model = DisplayValueModel
+                fields = '__all__'
+
+        serializer = TestSerializer()
+        expected = OrderedDict([('1', 'My Red Color'), ('2', 'My Yellow Color'), ('3', 'My Green Color')])
+        self.assertEqual(serializer.fields['color'].choices, expected)
+
+
 class TestIntegration(TestCase):
     def setUp(self):
         self.foreign_key_target = ForeignKeyTargetModel.objects.create(
@@ -476,6 +658,7 @@ class TestIntegration(TestCase):
         class TestSerializer(serializers.ModelSerializer):
             class Meta:
                 model = RelationalModel
+                fields = '__all__'
 
         serializer = TestSerializer(self.instance)
         expected = {
@@ -491,6 +674,7 @@ class TestIntegration(TestCase):
         class TestSerializer(serializers.ModelSerializer):
             class Meta:
                 model = RelationalModel
+                fields = '__all__'
 
         new_foreign_key = ForeignKeyTargetModel.objects.create(
             name='foreign_key'
@@ -538,6 +722,7 @@ class TestIntegration(TestCase):
         class TestSerializer(serializers.ModelSerializer):
             class Meta:
                 model = RelationalModel
+                fields = '__all__'
 
         new_foreign_key = ForeignKeyTargetModel.objects.create(
             name='foreign_key'
@@ -615,7 +800,7 @@ class TestBulkCreate(TestCase):
         assert serializer.data == data
 
 
-class TestMetaClassModel(models.Model):
+class MetaClassTestModel(models.Model):
     text = models.CharField(max_length=100)
 
 
@@ -623,7 +808,7 @@ class TestSerializerMetaClass(TestCase):
     def test_meta_class_fields_option(self):
         class ExampleSerializer(serializers.ModelSerializer):
             class Meta:
-                model = TestMetaClassModel
+                model = MetaClassTestModel
                 fields = 'text'
 
         with self.assertRaises(TypeError) as result:
@@ -637,7 +822,7 @@ class TestSerializerMetaClass(TestCase):
     def test_meta_class_exclude_option(self):
         class ExampleSerializer(serializers.ModelSerializer):
             class Meta:
-                model = TestMetaClassModel
+                model = MetaClassTestModel
                 exclude = 'text'
 
         with self.assertRaises(TypeError) as result:
@@ -651,7 +836,7 @@ class TestSerializerMetaClass(TestCase):
     def test_meta_class_fields_and_exclude_options(self):
         class ExampleSerializer(serializers.ModelSerializer):
             class Meta:
-                model = TestMetaClassModel
+                model = MetaClassTestModel
                 fields = ('text',)
                 exclude = ('text',)
 
@@ -663,3 +848,110 @@ class TestSerializerMetaClass(TestCase):
             str(exception),
             "Cannot set both 'fields' and 'exclude' options on serializer ExampleSerializer."
         )
+
+
+class Issue2704TestCase(TestCase):
+    def test_queryset_all(self):
+        class TestSerializer(serializers.ModelSerializer):
+            additional_attr = serializers.CharField()
+
+            class Meta:
+                model = OneFieldModel
+                fields = ('char_field', 'additional_attr')
+
+        OneFieldModel.objects.create(char_field='abc')
+        qs = OneFieldModel.objects.all()
+
+        for o in qs:
+            o.additional_attr = '123'
+
+        serializer = TestSerializer(instance=qs, many=True)
+
+        expected = [{
+            'char_field': 'abc',
+            'additional_attr': '123',
+        }]
+
+        assert serializer.data == expected
+
+
+class DecimalFieldModel(models.Model):
+    decimal_field = models.DecimalField(
+        max_digits=3,
+        decimal_places=1,
+        validators=[MinValueValidator(1), MaxValueValidator(3)]
+    )
+
+
+class TestDecimalFieldMappings(TestCase):
+    def test_decimal_field_has_decimal_validator(self):
+        """
+        Test that a `DecimalField` has no `DecimalValidator`.
+        """
+        class TestSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = DecimalFieldModel
+                fields = '__all__'
+
+        serializer = TestSerializer()
+
+        assert len(serializer.fields['decimal_field'].validators) == 2
+
+    def test_min_value_is_passed(self):
+        """
+        Test that the `MinValueValidator` is converted to the `min_value`
+        argument for the field.
+        """
+        class TestSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = DecimalFieldModel
+                fields = '__all__'
+
+        serializer = TestSerializer()
+
+        assert serializer.fields['decimal_field'].min_value == 1
+
+    def test_max_value_is_passed(self):
+        """
+        Test that the `MaxValueValidator` is converted to the `max_value`
+        argument for the field.
+        """
+        class TestSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = DecimalFieldModel
+                fields = '__all__'
+
+        serializer = TestSerializer()
+
+        assert serializer.fields['decimal_field'].max_value == 3
+
+
+class TestMetaInheritance(TestCase):
+    def test_extra_kwargs_not_altered(self):
+        class TestSerializer(serializers.ModelSerializer):
+            non_model_field = serializers.CharField()
+
+            class Meta:
+                model = OneFieldModel
+                read_only_fields = ('char_field', 'non_model_field')
+                fields = read_only_fields
+                extra_kwargs = {}
+
+        class ChildSerializer(TestSerializer):
+            class Meta(TestSerializer.Meta):
+                read_only_fields = ()
+
+        test_expected = dedent("""
+            TestSerializer():
+                char_field = CharField(read_only=True)
+                non_model_field = CharField()
+        """)
+
+        child_expected = dedent("""
+            ChildSerializer():
+                char_field = CharField(max_length=100)
+                non_model_field = CharField()
+        """)
+        self.assertEqual(unicode_repr(ChildSerializer()), child_expected)
+        self.assertEqual(unicode_repr(TestSerializer()), test_expected)
+        self.assertEqual(unicode_repr(ChildSerializer()), child_expected)

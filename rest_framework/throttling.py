@@ -2,16 +2,20 @@
 Provides various throttling policies.
 """
 from __future__ import unicode_literals
+
+import time
+
 from django.core.cache import cache as default_cache
 from django.core.exceptions import ImproperlyConfigured
+
 from rest_framework.settings import api_settings
-import time
 
 
 class BaseThrottle(object):
     """
     Rate throttling of requests.
     """
+
     def allow_request(self, request, view):
         """
         Return `True` if the request should be allowed, `False` otherwise.
@@ -57,7 +61,6 @@ class SimpleRateThrottle(BaseThrottle):
 
     Previous request information used for throttling is stored in the cache.
     """
-
     cache = default_cache
     timer = time.time
     cache_format = 'throttle_%(scope)s_%(ident)s'

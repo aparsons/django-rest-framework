@@ -1,10 +1,14 @@
 # coding: utf-8
 from __future__ import unicode_literals
-from .utils import MockObject
+
+import pickle
+
+import pytest
+
 from rest_framework import serializers
 from rest_framework.compat import unicode_repr
-import pickle
-import pytest
+
+from .utils import MockObject
 
 
 # Tests for core functionality.
@@ -46,6 +50,16 @@ class TestSerializer:
         serializer = self.Serializer(instance)
         with pytest.raises(AttributeError):
             serializer.data
+
+    def test_data_access_before_save_raises_error(self):
+        def create(validated_data):
+            return validated_data
+        serializer = self.Serializer(data={'char': 'abc', 'integer': 123})
+        serializer.create = create
+        assert serializer.is_valid()
+        assert serializer.data == {'char': 'abc', 'integer': 123}
+        with pytest.raises(AssertionError):
+            serializer.save()
 
 
 class TestValidateMethod:

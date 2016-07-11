@@ -7,7 +7,7 @@ source: mixins.py
 >
 > &mdash; [Django Documentation][cite]
 
-One of the key benefits of class based views is the way they allow you to compose bits of reusable behavior.  REST framework takes advantage of this by providing a number of pre-built views that provide for commonly used patterns.
+One of the key benefits of class-based views is the way they allow you to compose bits of reusable behavior.  REST framework takes advantage of this by providing a number of pre-built views that provide for commonly used patterns.
 
 The generic views provided by REST framework allow you to quickly build API views that map closely to your database models.
 
@@ -26,7 +26,6 @@ Typically when using the generic views, you'll override the view, and set severa
         queryset = User.objects.all()
         serializer_class = UserSerializer
         permission_classes = (IsAdminUser,)
-        paginate_by = 100
 
 For more complex cases you might also want to override various methods on the view class.  For example.
 
@@ -34,14 +33,6 @@ For more complex cases you might also want to override various methods on the vi
         queryset = User.objects.all()
         serializer_class = UserSerializer
         permission_classes = (IsAdminUser,)
-
-        def get_paginate_by(self):
-            """
-            Use smaller pagination for HTML representations.
-            """
-            if self.request.accepted_renderer.format == 'html':
-                return 20
-            return 100
 
         def list(self, request):
             # Note the use of `get_queryset()` instead of `self.queryset`
@@ -51,7 +42,7 @@ For more complex cases you might also want to override various methods on the vi
 
 For very simple cases you might want to pass through any class attributes using the `.as_view()` method.  For example, your URLconf might include something like the following entry:
 
-    url(r'^/users/', ListCreateAPIView.as_view(model=User), name='user-list')
+    url(r'^/users/', ListCreateAPIView.as_view(queryset=User.objects.all(), serializer_class=UserSerializer), name='user-list')
 
 ---
 
@@ -79,8 +70,6 @@ The following attributes control the basic view behavior.
 The following attributes are used to control pagination when used with list views.
 
 * `pagination_class` - The pagination class that should be used when paginating list results. Defaults to the same value as the `DEFAULT_PAGINATION_CLASS` setting, which is `'rest_framework.pagination.PageNumberPagination'`.
-
-Note that usage of the `paginate_by`, `paginate_by_param` and `page_kwarg` attributes are now pending deprecation. The `pagination_serializer_class` attribute and `DEFAULT_PAGINATION_SERIALIZER_CLASS` setting have been removed completely. Pagination settings should instead be controlled by overriding a pagination class and setting any configuration attributes there. See the pagination documentation for more details.
 
 **Filtering**:
 
@@ -124,21 +113,24 @@ For example:
 
 Note that if your API doesn't include any object level permissions, you may optionally exclude the `self.check_object_permissions`, and simply return the object from the `get_object_or_404` lookup.
 
-#### `get_filter_backends(self)`
+#### `filter_queryset(self, queryset)`       
 
-Returns the classes that should be used to filter the queryset. Defaults to returning the `filter_backends` attribute.
+Given a queryset, filter it with whichever filter backends are in use, returning a new queryset.   
 
-May be overridden to provide more complex behavior with filters, such as using different (or even exclusive) lists of filter_backends depending on different criteria.
+For example:       
 
-For example:
+    def filter_queryset(self, queryset):
+        filter_backends = (CategoryFilter,)
 
-    def get_filter_backends(self):
-        if "geo_route" in self.request.query_params:
-            return (GeoRouteFilter, CategoryFilter)
-        elif "geo_point" in self.request.query_params:
-            return (GeoPointFilter, CategoryFilter)
+        if 'geo_route' in self.request.query_params:
+            filter_backends = (GeoRouteFilter, CategoryFilter)
+        elif 'geo_point' in self.request.query_params:
+            filter_backends = (GeoPointFilter, CategoryFilter)
 
-        return (CategoryFilter,)
+        for backend in list(filter_backends):
+            queryset = backend().filter_queryset(self.request, queryset, view=self)
+
+        return queryset
 
 #### `get_serializer_class(self)`
 
@@ -152,19 +144,6 @@ For example:
         if self.request.user.is_staff:
             return FullAccountSerializer
         return BasicAccountSerializer
-
-#### `get_paginate_by(self)`
-
-Returns the page size to use with pagination.  By default this uses the `paginate_by` attribute, and may be overridden by the client if the `paginate_by_param` attribute is set.
-
-You may want to override this method to provide more complex behavior, such as modifying page sizes based on the media type of the response.
-
-For example:
-
-    def get_paginate_by(self):
-        if self.request.accepted_renderer.format == 'html':
-            return 20
-        return 100
 
 **Save and deletion hooks**:
 
@@ -185,6 +164,14 @@ These override points are also particularly useful for adding behavior that occu
         instance = serializer.save()
         send_email_confirmation(user=self.request.user, modified=instance)
 
+You can also use these hooks to provide additional validation, by raising a `ValidationError()`. This can be useful if you need some validation logic to apply at the point of database save. For example:
+
+    def perform_create(self, serializer):
+        queryset = SignupRequest.objects.filter(user=self.request.user)
+        if queryset.exists():
+            raise ValidationError('You have already signed up')
+        serializer.save(user=self.request.user)
+
 **Note**: These methods replace the old-style version 2.x `pre_save`, `post_save`, `pre_delete` and `post_delete` methods, which are no longer available.
 
 **Other methods**:
@@ -192,8 +179,8 @@ These override points are also particularly useful for adding behavior that occu
 You won't typically need to override the following methods, although you might need to call into them if you're writing custom views using `GenericAPIView`.
 
 * `get_serializer_context(self)` - Returns a dictionary containing any extra context that should be supplied to the serializer.  Defaults to including `'request'`, `'view'` and `'format'` keys.
-* `get_serializer(self, instance=None, data=None, files=None, many=False, partial=False, allow_add_remove=False)` - Returns a serializer instance.
-* `get_pagination_serializer(self, page)` - Returns a serializer instance to use with paginated data.
+* `get_serializer(self, instance=None, data=None, many=False, partial=False)` - Returns a serializer instance.
+* `get_paginated_response(self, data)` - Returns a paginated style `Response` object.
 * `paginate_queryset(self, queryset)` - Paginate a queryset if required, either returning a page object, or `None` if pagination is not configured for this view.
 * `filter_queryset(self, queryset)` - Given a queryset, filter it with whichever filter backends are in use, returning a new queryset.
 
@@ -391,6 +378,10 @@ The following third party packages provide additional generic view implementatio
 
 The [django-rest-framework-bulk package][django-rest-framework-bulk] implements generic view mixins as well as some common concrete generic views to allow to apply bulk operations via API requests.
 
+## Django Rest Multiple Models
+
+[Django Rest Multiple Models][django-rest-multiple-models] provides a generic view (and mixin) for sending multiple serialized models and/or querysets via a single API request.
+
 
 [cite]: https://docs.djangoproject.com/en/dev/ref/class-based-views/#base-vs-generic-views
 [GenericAPIView]: #genericapiview
@@ -400,3 +391,4 @@ The [django-rest-framework-bulk package][django-rest-framework-bulk] implements 
 [UpdateModelMixin]: #updatemodelmixin
 [DestroyModelMixin]: #destroymodelmixin
 [django-rest-framework-bulk]: https://github.com/miki725/django-rest-framework-bulk
+[django-rest-multiple-models]: https://github.com/Axiologue/DjangoRestMultipleModels

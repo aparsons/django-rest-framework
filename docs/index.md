@@ -1,17 +1,37 @@
+<style>
+.promo li a {
+    float: left;
+    width: 130px;
+    height: 20px;
+    text-align: center;
+    margin: 10px 30px;
+    padding: 150px 0 0 0;
+    background-position: 0 50%;
+    background-size: 130px auto;
+    background-repeat: no-repeat;
+    font-size: 120%;
+    color: black;
+}
+.promo li {
+    list-style: none;
+}
+</style>
+
 <p class="badges" height=20px>
-<iframe src="http://ghbtns.com/github-btn.html?user=tomchristie&amp;repo=django-rest-framework&amp;type=watch&amp;count=true" class="github-star-button" allowtransparency="true" frameborder="0" scrolling="0" width="110px" height="20px"></iframe>
+    <iframe src="http://ghbtns.com/github-btn.html?user=tomchristie&amp;repo=django-rest-framework&amp;type=watch&amp;count=true" class="github-star-button" allowtransparency="true" frameborder="0" scrolling="0" width="110px" height="20px"></iframe>
 
-<a href="https://twitter.com/share" class="twitter-share-button" data-url="django-rest-framework.org" data-text="Checking out the totally awesome Django REST framework! http://www.django-rest-framework.org" data-count="none"></a>
-<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="http://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+    <a href="http://travis-ci.org/tomchristie/django-rest-framework?branch=master">
+        <img src="https://secure.travis-ci.org/tomchristie/django-rest-framework.svg?branch=master" class="status-badge">
+    </a>
 
-<img src="https://secure.travis-ci.org/tomchristie/django-rest-framework.svg?branch=master" class="travis-build-image">
+    <a href="https://pypi.python.org/pypi/djangorestframework">
+        <img src="https://img.shields.io/pypi/v/djangorestframework.svg" class="status-badge">
+    </a>
 </p>
 
 ---
 
-**Note**: This is the documentation for the **version 3.1** of REST framework. Documentation for [version 2.4](http://tomchristie.github.io/rest-framework-2-docs/) is also available.
-
-For more details see the [3.1 release notes][3.1-announcement].
+**Note**: This is the documentation for the **version 3** of REST framework. Documentation for [version 2](http://tomchristie.github.io/rest-framework-2-docs/) is also available.
 
 ---
 
@@ -28,7 +48,7 @@ For more details see the [3.1 release notes][3.1-announcement].
 <img alt="Django REST Framework" title="Logo by Jake 'Sid' Smith" src="img/logo.png" width="600px" style="display: block; margin: 0 auto 0 auto">
 </p>
 
-Django REST framework is a powerful and flexible toolkit that makes it easy to build Web APIs.
+Django REST framework is a powerful and flexible toolkit for building Web APIs.
 
 Some reasons you might want to use REST framework:
 
@@ -37,25 +57,44 @@ Some reasons you might want to use REST framework:
 * [Serialization][serializers] that supports both [ORM][modelserializer-section] and [non-ORM][serializer-section] data sources.
 * Customizable all the way down - just use [regular function-based views][functionview-section] if you don't need the [more][generic-views] [powerful][viewsets] [features][routers].
 * [Extensive documentation][index], and [great community support][group].
-* Used and trusted by large companies such as [Mozilla][mozilla] and [Eventbrite][eventbrite].
+* Used and trusted by internationally recognised companies including [Mozilla][mozilla], [Red Hat][redhat], [Heroku][heroku], and [Eventbrite][eventbrite].
 
 ---
 
-![Screenshot][image]
+## Funding
 
-**Above**: *Screenshot from the browsable API*
+REST framework is a *collaboratively funded project*. If you use
+REST framework commercially we strongly encourage you to invest in its
+continued development by **[signing up for a paid plan][funding]**.
+
+The initial aim is to provide a single full-time position on REST framework.
+Right now we're over 58% of the way towards achieving that.
+*Every single sign-up makes a significant impact.*
+
+<ul class="premium-promo promo">
+    <li><a href="http://jobs.rover.com/" style="background-image: url(https://fund-rest-framework.s3.amazonaws.com/rover_130x130.png)">Rover.com</a></li>
+    <li><a href="https://getsentry.com/welcome/" style="background-image: url(https://fund-rest-framework.s3.amazonaws.com/sentry130.png)">Sentry</a></li>
+    <li><a href="https://getstream.io/?utm_source=drf&utm_medium=banner&utm_campaign=drf" style="background-image: url(https://fund-rest-framework.s3.amazonaws.com/stream-130.png)">Stream</a></li>
+</ul>
+<div style="clear: both; padding-bottom: 20px;"></div>
+
+*Many thanks to all our [awesome sponsors][sponsors], and in particular to our premium backers, [Rover](http://jobs.rover.com/), [Sentry](https://getsentry.com/welcome/), and [Stream](https://getstream.io/?utm_source=drf&utm_medium=banner&utm_campaign=drf).*
+
+---
 
 ## Requirements
 
 REST framework requires the following:
 
-* Python (2.6.5+, 2.7, 3.2, 3.3, 3.4)
-* Django (1.4.11+, 1.5.6+, 1.6.3+, 1.7+, 1.8)
+* Python (2.7, 3.2, 3.3, 3.4, 3.5)
+* Django (1.7+, 1.8, 1.9)
 
 The following packages are optional:
 
+* [coreapi][coreapi] (1.31.0+) - Schema generation support.
 * [Markdown][markdown] (2.1.0+) - Markdown support for the browsable API.
 * [django-filter][django-filter] (0.9.2+) - Filtering support.
+* [django-crispy-forms][django-crispy-forms] - Improved HTML display for filtering.
 * [django-guardian][django-guardian] (1.1.1+) - Object level permissions support.
 
 ## Installation
@@ -84,7 +123,7 @@ If you're intending to use the browsable API you'll probably also want to add RE
         url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework'))
     ]
 
-Note that the URL path can be whatever you want, but you must include `'rest_framework.urls'` with the `'rest_framework'` namespace.
+Note that the URL path can be whatever you want, but you must include `'rest_framework.urls'` with the `'rest_framework'` namespace. You may leave out the namespace in Django 1.9+, and REST framework will set it for you.
 
 ## Example
 
@@ -145,10 +184,11 @@ The tutorial will walk you through the building blocks that make up REST framewo
 
 * [1 - Serialization][tut-1]
 * [2 - Requests & Responses][tut-2]
-* [3 - Class based views][tut-3]
+* [3 - Class-based views][tut-3]
 * [4 - Authentication & permissions][tut-4]
 * [5 - Relationships & hyperlinked APIs][tut-5]
 * [6 - Viewsets & routers][tut-6]
+* [7 - Schemas & client libraries][tut-7]
 
 There is a live example API of the finished tutorial API for testing purposes, [available here][sandbox].
 
@@ -176,6 +216,7 @@ The API guide is your complete reference manual to all the functionality provide
 * [Versioning][versioning]
 * [Content negotiation][contentnegotiation]
 * [Metadata][metadata]
+* [Schemas][schemas]
 * [Format suffixes][formatsuffixes]
 * [Returning URLs][reverse]
 * [Exceptions][exceptions]
@@ -188,7 +229,10 @@ The API guide is your complete reference manual to all the functionality provide
 General guides to using REST framework.
 
 * [Documenting your API][documenting-your-api]
+* [API Clients][api-clients]
+* [Internationalization][internationalization]
 * [AJAX, CSRF & CORS][ajax-csrf-cors]
+* [HTML & Forms][html-and-forms]
 * [Browser enhancements][browser-enhancements]
 * [The Browsable API][browsableapi]
 * [REST, Hypermedia & HATEOAS][rest-hypermedia-hateoas]
@@ -197,7 +241,11 @@ General guides to using REST framework.
 * [Project management][project-management]
 * [3.0 Announcement][3.0-announcement]
 * [3.1 Announcement][3.1-announcement]
+* [3.2 Announcement][3.2-announcement]
+* [3.3 Announcement][3.3-announcement]
 * [Kickstarter Announcement][kickstarter-announcement]
+* [Mozilla Grant][mozilla-grant]
+* [Funding][funding]
 * [Release Notes][release-notes]
 
 ## Development
@@ -225,7 +273,7 @@ Send a description of the issue via email to [rest-framework-security@googlegrou
 
 ## License
 
-Copyright (c) 2011-2015, Tom Christie
+Copyright (c) 2011-2016, Tom Christie
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -248,12 +296,14 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-[travis]: http://travis-ci.org/tomchristie/django-rest-framework?branch=master
-[travis-build-image]: https://secure.travis-ci.org/tomchristie/django-rest-framework.png?branch=master
 [mozilla]: http://www.mozilla.org/en-US/about/
+[redhat]: https://www.redhat.com/
+[heroku]: https://www.heroku.com/
 [eventbrite]: https://www.eventbrite.co.uk/about/
+[coreapi]: http://pypi.python.org/pypi/coreapi/
 [markdown]: http://pypi.python.org/pypi/Markdown/
 [django-filter]: http://pypi.python.org/pypi/django-filter
+[django-crispy-forms]: https://github.com/maraujop/django-crispy-forms
 [django-guardian]: https://github.com/lukaszb/django-guardian
 [0.4]: https://github.com/tomchristie/django-rest-framework/tree/0.4.X
 [image]: img/quickstart.png
@@ -264,6 +314,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [modelserializer-section]: api-guide/serializers#modelserializer
 [functionview-section]: api-guide/views#function-based-views
 [sandbox]: http://restframework.herokuapp.com/
+[sponsors]: https://fund.django-rest-framework.org/topics/funding/#our-sponsors
 
 [quickstart]: tutorial/quickstart.md
 [tut-1]: tutorial/1-serialization.md
@@ -272,6 +323,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [tut-4]: tutorial/4-authentication-and-permissions.md
 [tut-5]: tutorial/5-relationships-and-hyperlinked-apis.md
 [tut-6]: tutorial/6-viewsets-and-routers.md
+[tut-7]: tutorial/7-schemas-and-client-libraries.md
 
 [request]: api-guide/requests.md
 [response]: api-guide/responses.md
@@ -293,6 +345,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [versioning]: api-guide/versioning.md
 [contentnegotiation]: api-guide/content-negotiation.md
 [metadata]: api-guide/metadata.md
+[schemas]: 'api-guide/schemas.md'
 [formatsuffixes]: api-guide/format-suffixes.md
 [reverse]: api-guide/reverse.md
 [exceptions]: api-guide/exceptions.md
@@ -301,8 +354,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [settings]: api-guide/settings.md
 
 [documenting-your-api]: topics/documenting-your-api.md
-[internationalization]: topics/documenting-your-api.md
+[api-clients]: topics/api-clients.md
+[internationalization]: topics/internationalization.md
 [ajax-csrf-cors]: topics/ajax-csrf-cors.md
+[html-and-forms]: topics/html-and-forms.md
 [browser-enhancements]: topics/browser-enhancements.md
 [browsableapi]: topics/browsable-api.md
 [rest-hypermedia-hateoas]: topics/rest-hypermedia-hateoas.md
@@ -311,7 +366,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [third-party-resources]: topics/third-party-resources.md
 [3.0-announcement]: topics/3.0-announcement.md
 [3.1-announcement]: topics/3.1-announcement.md
+[3.2-announcement]: topics/3.2-announcement.md
+[3.3-announcement]: topics/3.3-announcement.md
 [kickstarter-announcement]: topics/kickstarter-announcement.md
+[mozilla-grant]: topics/mozilla-grant.md
+[funding]: topics/funding.md
 [release-notes]: topics/release-notes.md
 
 [tox]: http://testrun.org/tox/latest/

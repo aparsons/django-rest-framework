@@ -18,13 +18,15 @@ REST framework settings, checking for user settings first, then falling
 back to the defaults.
 """
 from __future__ import unicode_literals
-from django.test.signals import setting_changed
+
+import warnings
+
 from django.conf import settings
+from django.test.signals import setting_changed
 from django.utils import six
+
 from rest_framework import ISO_8601
 from rest_framework.compat import importlib
-
-USER_SETTINGS = getattr(settings, 'REST_FRAMEWORK', None)
 
 DEFAULTS = {
     # Base API policies
@@ -91,13 +93,8 @@ DEFAULTS = {
     ),
     'TEST_REQUEST_DEFAULT_FORMAT': 'multipart',
 
-    # Browser enhancements
-    'FORM_METHOD_OVERRIDE': '_method',
-    'FORM_CONTENT_OVERRIDE': '_content',
-    'FORM_CONTENTTYPE_OVERRIDE': '_content_type',
-    'URL_ACCEPT_OVERRIDE': 'accept',
+    # Hyperlink settings
     'URL_FORMAT_OVERRIDE': 'format',
-
     'FORMAT_SUFFIX_KWARG': 'format',
     'URL_FIELD_NAME': 'url',
 
@@ -116,11 +113,6 @@ DEFAULTS = {
     'COMPACT_JSON': True,
     'COERCE_DECIMAL_TO_STRING': True,
     'UPLOADED_FILES_USE_URL': True,
-
-    # Pending deprecation:
-    'PAGINATE_BY': None,
-    'PAGINATE_BY_PARAM': None,
-    'MAX_PAGINATE_BY': None
 }
 
 
@@ -142,6 +134,12 @@ IMPORT_STRINGS = (
     'UNAUTHENTICATED_TOKEN',
     'VIEW_NAME_FUNCTION',
     'VIEW_DESCRIPTION_FUNCTION'
+)
+
+
+# List of settings that have been removed
+REMOVED_SETTINGS = (
+    "PAGINATE_BY", "PAGINATE_BY_PARAM", "MAX_PAGINATE_BY",
 )
 
 
@@ -169,7 +167,7 @@ def import_from_string(val, setting_name):
         module_path, class_name = '.'.join(parts[:-1]), parts[-1]
         module = importlib.import_module(module_path)
         return getattr(module, class_name)
-    except ImportError as e:
+    except (ImportError, AttributeError) as e:
         msg = "Could not import '%s' for API setting '%s'. %s: %s." % (val, setting_name, e.__class__.__name__, e)
         raise ImportError(msg)
 
@@ -186,12 +184,19 @@ class APISettings(object):
     and return the class, rather than the string literal.
     """
     def __init__(self, user_settings=None, defaults=None, import_strings=None):
-        self.user_settings = user_settings or {}
+        if user_settings:
+            self._user_settings = self.__check_user_settings(user_settings)
         self.defaults = defaults or DEFAULTS
         self.import_strings = import_strings or IMPORT_STRINGS
 
+    @property
+    def user_settings(self):
+        if not hasattr(self, '_user_settings'):
+            self._user_settings = getattr(settings, 'REST_FRAMEWORK', {})
+        return self._user_settings
+
     def __getattr__(self, attr):
-        if attr not in self.defaults.keys():
+        if attr not in self.defaults:
             raise AttributeError("Invalid API setting: '%s'" % attr)
 
         try:
@@ -202,15 +207,22 @@ class APISettings(object):
             val = self.defaults[attr]
 
         # Coerce import strings into classes
-        if val and attr in self.import_strings:
+        if attr in self.import_strings:
             val = perform_import(val, attr)
 
         # Cache the result
         setattr(self, attr, val)
         return val
 
+    def __check_user_settings(self, user_settings):
+        SETTINGS_DOC = "http://www.django-rest-framework.org/api-guide/settings/"
+        for setting in REMOVED_SETTINGS:
+            if setting in user_settings:
+                warnings.warn("The '%s' setting has been removed. Please refer to '%s' for available settings." % (setting, SETTINGS_DOC), DeprecationWarning)
+        return user_settings
 
-api_settings = APISettings(USER_SETTINGS, DEFAULTS, IMPORT_STRINGS)
+
+api_settings = APISettings(None, DEFAULTS, IMPORT_STRINGS)
 
 
 def reload_api_settings(*args, **kwargs):

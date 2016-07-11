@@ -28,7 +28,7 @@ The default set of renderers may be set globally, using the `DEFAULT_RENDERER_CL
     }
 
 You can also set the renderers used for an individual view, or viewset,
-using the `APIView` class based views.
+using the `APIView` class-based views.
 
     from django.contrib.auth.models import User
     from rest_framework.renderers import JSONRenderer
@@ -153,23 +153,13 @@ You can use `StaticHTMLRenderer` either to return regular HTML pages using REST 
 
 See also: `TemplateHTMLRenderer`
 
-## HTMLFormRenderer
-
-Renders data returned by a serializer into an HTML form.  The output of this renderer does not include the enclosing `<form>` tags or an submit actions, as you'll probably need those to include the desired method and URL.  Also note that the `HTMLFormRenderer` does not yet support including field error messages.
-
-Note that the template used by the `HTMLFormRenderer` class, and the context submitted to it **may be subject to change**.  If you need to use this renderer class it is advised that you either make a local copy of the class and templates, or follow the release note on REST framework upgrades closely.
-
-**.media_type**: `text/html`
-
-**.format**: `'.form'`
-
-**.charset**: `utf-8`
-
-**.template**: `'rest_framework/form.html'`
-
 ## BrowsableAPIRenderer
 
-Renders data into HTML for the Browsable API.  This renderer will determine which other renderer would have been given highest priority, and use that to display an API style response within the HTML page.
+Renders data into HTML for the Browsable API:
+
+![The BrowsableAPIRenderer](../img/quickstart.png)
+
+This renderer will determine which other renderer would have been given highest priority, and use that to display an API style response within the HTML page.
 
 **.media_type**: `text/html`
 
@@ -181,11 +171,62 @@ Renders data into HTML for the Browsable API.  This renderer will determine whic
 
 #### Customizing BrowsableAPIRenderer
 
-By default the response content will be rendered with the highest priority renderer apart from `BrowseableAPIRenderer`.  If you need to customize this behavior, for example to use HTML as the default return format, but use JSON in the browsable API, you can do so by overriding the `get_default_renderer()` method.  For example:
+By default the response content will be rendered with the highest priority renderer apart from `BrowsableAPIRenderer`.  If you need to customize this behavior, for example to use HTML as the default return format, but use JSON in the browsable API, you can do so by overriding the `get_default_renderer()` method.  For example:
 
     class CustomBrowsableAPIRenderer(BrowsableAPIRenderer):
         def get_default_renderer(self, view):
             return JSONRenderer()
+
+##  AdminRenderer
+
+Renders data into HTML for an admin-like display:
+
+![The AdminRender view](../img/admin.png)
+
+This renderer is suitable for CRUD-style web APIs that should also present a user-friendly interface for managing the data.
+
+Note that views that have nested or list serializers for their input won't work well with the `AdminRenderer`, as the HTML forms are unable to properly support them.
+
+**Note**: The `AdminRenderer` is only able to include links to detail pages when a properly configured `URL_FIELD_NAME` (`url` by default) attribute is present in the data. For `HyperlinkedModelSerializer` this will be the case, but for `ModelSerializer` or plain `Serializer` classes you'll need to make sure to include the field explicitly. For example here we use models `get_absolute_url` method:
+
+    class AccountSerializer(serializers.ModelSerializer):
+        url = serializers.CharField(source='get_absolute_url', read_only=True)
+
+        class Meta:
+            model = Account
+
+
+**.media_type**: `text/html`
+
+**.format**: `'.admin'`
+
+**.charset**: `utf-8`
+
+**.template**: `'rest_framework/admin.html'`
+
+## HTMLFormRenderer
+
+Renders data returned by a serializer into an HTML form. The output of this renderer does not include the enclosing `<form>` tags, a hidden CSRF input or any submit buttons.
+
+This renderer is not intended to be used directly, but can instead be used in templates by passing a serializer instance to the `render_form` template tag.
+
+    {% load rest_framework %}
+
+    <form action="/submit-report/" method="post">
+        {% csrf_token %}
+        {% render_form serializer %}
+        <input type="submit" value="Save" />
+    </form>
+
+For more information see the [HTML & Forms][html-and-forms] documentation.
+
+**.media_type**: `text/html`
+
+**.format**: `'.form'`
+
+**.charset**: `utf-8`
+
+**.template**: `'rest_framework/horizontal/form.html'`
 
 ## MultiPartRenderer
 
@@ -430,9 +471,14 @@ Comma-separated values are a plain-text tabular data format, that can be easily 
 
 [Django REST Pandas] provides a serializer and renderers that support additional data processing and output via the [Pandas] DataFrame API.  Django REST Pandas includes renderers for Pandas-style CSV files, Excel workbooks (both `.xls` and `.xlsx`), and a number of [other formats]. It is maintained by [S. Andrew Sheppard][sheppard] as part of the [wq Project][wq].
 
+## LaTeX
+
+[Rest Framework Latex] provides a renderer that outputs PDFs using Laulatex. It is maintained by [Pebble (S/F Software)][mypebble].
+
 
 [cite]: https://docs.djangoproject.com/en/dev/ref/template-response/#the-rendering-process
 [conneg]: content-negotiation.md
+[html-and-forms]: ../topics/html-and-forms.md
 [browser-accept-headers]: http://www.gethifi.com/blog/browser-rest-http-accept-headers
 [testing]: testing.md
 [HATEOAS]: http://timelessrepo.com/haters-gonna-hateoas
@@ -464,3 +510,5 @@ Comma-separated values are a plain-text tabular data format, that can be easily 
 [other formats]: https://github.com/wq/django-rest-pandas#supported-formats
 [sheppard]: https://github.com/sheppard
 [wq]: https://github.com/wq
+[mypebble]: https://github.com/mypebble
+[Rest Framework Latex]: https://github.com/mypebble/rest-framework-latex

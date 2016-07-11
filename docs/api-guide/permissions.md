@@ -71,11 +71,11 @@ If not specified, this setting defaults to allowing unrestricted access:
     )
 
 You can also set the authentication policy on a per-view, or per-viewset basis,
-using the `APIView` class based views.
+using the `APIView` class-based views.
 
     from rest_framework.permissions import IsAuthenticated
-	from rest_framework.response import Response
-	from rest_framework.views import APIView
+    from rest_framework.response import Response
+    from rest_framework.views import APIView
 
     class ExampleView(APIView):
         permission_classes = (IsAuthenticated,)
@@ -88,6 +88,10 @@ using the `APIView` class based views.
 
 Or, if you're using the `@api_view` decorator with function based views.
 
+    from rest_framework.decorators import api_view, permission_classes
+    from rest_framework.permissions import IsAuthenticated
+    from rest_framework.response import Response
+
     @api_view('GET')
     @permission_classes((IsAuthenticated, ))
     def example_view(request, format=None):
@@ -95,6 +99,8 @@ Or, if you're using the `@api_view` decorator with function based views.
             'status': 'request was permitted'
         }
         return Response(content)
+
+__Note:__ when you set new permission classes through class attribute or decorators you're telling the view to ignore the default list set over the __settings.py__ file.
 
 ---
 
@@ -138,7 +144,7 @@ To use custom model permissions, override `DjangoModelPermissions` and set the `
 
 #### Using with views that do not include a `queryset` attribute.
 
-If you're using this permission with a view that uses an overridden `get_queryset()` method there may not be a `queryset` attribute on the view. In this case we suggest also marking the view with a sential queryset, so that this class can determine the required permissions. For example:
+If you're using this permission with a view that uses an overridden `get_queryset()` method there may not be a `queryset` attribute on the view. In this case we suggest also marking the view with a sentinel queryset, so that this class can determine the required permissions. For example:
 
     queryset = User.objects.none()  # Required for DjangoModelPermissions
 
@@ -150,7 +156,7 @@ Similar to `DjangoModelPermissions`, but also allows unauthenticated users to ha
 
 This permission class ties into Django's standard [object permissions framework][objectpermissions] that allows per-object permissions on models.  In order to use this permission class, you'll also need to add a permission backend that supports object-level permissions, such as [django-guardian][guardian].
 
-As with `DjangoModelPermissions`, this permission must only be applied to views that have a `.queryset` property. Authorization will only be granted if the user *is authenticated* and has the *relevant per-object permissions* and *relevant model permissions* assigned.
+As with `DjangoModelPermissions`, this permission must only be applied to views that have a `.queryset` property or `.get_queryset()` method. Authorization will only be granted if the user *is authenticated* and has the *relevant per-object permissions* and *relevant model permissions* assigned.
 
 * `POST` requests require the user to have the `add` permission on the model instance.
 * `PUT` and `PATCH` requests require the user to have the `change` permission on the model instance.
@@ -190,6 +196,16 @@ If you need to test if a request is a read operation or a write operation, you s
 
 ---
 
+Custom permissions will raise a `PermissionDenied` exception if the test fails. To change the error message associated with the exception, implement a `message` attribute directly on your custom permission. Otherwise the `default_detail` attribute from `PermissionDenied` will be used.
+    
+    from rest_framework import permissions
+
+    class CustomerAccessPermission(permissions.BasePermission):
+        message = 'Adding customers not allowed.'
+        
+        def has_permission(self, request, view):
+             ...
+        
 ## Examples
 
 The following is an example of a permission class that checks the incoming request's IP address against a blacklist, and denies the request if the IP has been blacklisted.
@@ -233,10 +249,6 @@ Also note that the generic views will only check the object-level permissions fo
 
 The following third party packages are also available.
 
-## DRF Any Permissions
-
-The [DRF Any Permissions][drf-any-permissions] packages provides a different permission behavior in contrast to REST framework.  Instead of all specified permissions being required, only one of the given permissions has to be true in order to get access to the view.
-
 ## Composed Permissions
 
 The [Composed Permissions][composed-permissions] package provides a simple way to define complex and multi-depth (with logic operators) permission objects, using small and reusable components.
@@ -244,6 +256,10 @@ The [Composed Permissions][composed-permissions] package provides a simple way t
 ## REST Condition
 
 The [REST Condition][rest-condition] package is another extension for building complex permissions in a simple and convenient way.  The extension allows you to combine permissions with logical operators.
+
+## DRY Rest Permissions
+
+The [DRY Rest Permissions][dry-rest-permissions] package provides the ability to define different permissions for individual default and custom actions. This package is made for apps with permissions that are derived from relationships defined in the app's data model. It also supports permission checks being returned to a client app through the API's serializer. Additionally it supports adding permissions to the default and custom list actions to restrict the data they retrive per user.
 
 [cite]: https://developer.apple.com/library/mac/#documentation/security/Conceptual/AuthenticationAndAuthorizationGuide/Authorization/Authorization.html
 [authentication]: authentication.md
@@ -258,3 +274,4 @@ The [REST Condition][rest-condition] package is another extension for building c
 [drf-any-permissions]: https://github.com/kevin-brown/drf-any-permissions
 [composed-permissions]: https://github.com/niwibe/djangorestframework-composed-permissions
 [rest-condition]: https://github.com/caxap/rest_condition
+[dry-rest-permissions]: https://github.com/Helioscene/dry-rest-permissions

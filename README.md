@@ -1,7 +1,9 @@
 # [Django REST framework][docs]
 
 [![build-status-image]][travis]
+[![coverage-status-image]][codecov]
 [![pypi-version]][pypi]
+[![Gitter](https://badges.gitter.im/tomchristie/django-rest-framework.svg)](https://gitter.im/tomchristie/django-rest-framework?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 **Awesome web-browsable Web APIs.**
 
@@ -9,9 +11,23 @@ Full documentation for the project is available at [http://www.django-rest-frame
 
 ---
 
-**Note**: We have now released Django REST framework 3.1. For older codebases you may want to refer to the version 2.4.4 [source code](https://github.com/tomchristie/django-rest-framework/tree/version-2.4.x), and [documentation](http://tomchristie.github.io/rest-framework-2-docs/).
+# Funding
 
-For more details see the [3.1 release notes][3.1-announcement]
+REST framework is a *collaboratively funded project*. If you use
+REST framework commercially we strongly encourage you to invest in its
+continued development by **[signing up for a paid plan][funding]**.
+
+The initial aim is to provide a single full-time position on REST framework.
+Right now we're over 58% of the way towards achieving that.
+*Every single sign-up makes a significant impact.*
+
+<p align="center">
+  <a href="http://jobs.rover.com/"><img src="https://raw.githubusercontent.com/tomchristie/django-rest-framework/master/docs/img/premium/rover-readme.png"/></a>
+  <a href="https://getsentry.com/welcome/"><img src="https://raw.githubusercontent.com/tomchristie/django-rest-framework/master/docs/img/premium/sentry-readme.png"/></a>
+  <a href="https://getstream.io/?utm_source=drf&utm_medium=banner&utm_campaign=drf"><img src="https://raw.githubusercontent.com/tomchristie/django-rest-framework/master/docs/img/premium/stream-readme.png"/></a>
+</p>
+
+*Many thanks to all our [wonderful sponsors][sponsors], and in particular to our premium backers, [Rover](http://jobs.rover.com/), [Sentry](https://getsentry.com/welcome/), and [Stream](https://getstream.io/?utm_source=drf&utm_medium=banner&utm_campaign=drf).*
 
 ---
 
@@ -35,8 +51,8 @@ There is a live example API for testing purposes, [available here][sandbox].
 
 # Requirements
 
-* Python (2.6.5+, 2.7, 3.2, 3.3, 3.4)
-* Django (1.4.11+, 1.5.6+, 1.6.3+, 1.7, 1.8)
+* Python (2.7, 3.2, 3.3, 3.4, 3.5)
+* Django (1.8, 1.9)
 
 # Installation
 
@@ -60,7 +76,9 @@ Startup up a new project like so...
     pip install django
     pip install djangorestframework
     django-admin.py startproject example .
-    ./manage.py syncdb
+    ./manage.py migrate
+    ./manage.py createsuperuser
+
 
 Now edit the `example/urls.py` module in your project:
 
@@ -156,39 +174,18 @@ If you believe you’ve found something in Django REST framework which has secur
 
 Send a description of the issue via email to [rest-framework-security@googlegroups.com][security-mail].  The project maintainers will then work with you to resolve any issues where required, prior to any public disclosure.
 
-# License
-
-Copyright (c) 2011-2015, Tom Christie
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer.
-Redistributions in binary form must reproduce the above copyright notice, this
-list of conditions and the following disclaimer in the documentation and/or
-other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
 [build-status-image]: https://secure.travis-ci.org/tomchristie/django-rest-framework.svg?branch=master
 [travis]: http://travis-ci.org/tomchristie/django-rest-framework?branch=master
-[pypi-version]: https://pypip.in/version/djangorestframework/badge.svg
+[coverage-status-image]: https://img.shields.io/codecov/c/github/tomchristie/django-rest-framework/master.svg
+[codecov]: http://codecov.io/github/tomchristie/django-rest-framework?branch=master
+[pypi-version]: https://img.shields.io/pypi/v/djangorestframework.svg
 [pypi]: https://pypi.python.org/pypi/djangorestframework
 [twitter]: https://twitter.com/_tomchristie
 [group]: https://groups.google.com/forum/?fromgroups#!forum/django-rest-framework
 [sandbox]: http://restframework.herokuapp.com/
+
+[funding]: https://fund.django-rest-framework.org/topics/funding/
+[sponsors]: https://fund.django-rest-framework.org/topics/funding/#our-sponsors
 
 [oauth1-section]: http://www.django-rest-framework.org/api-guide/authentication/#django-rest-framework-oauth
 [oauth2-section]: http://www.django-rest-framework.org/api-guide/authentication/#django-oauth-toolkit
@@ -204,4 +201,3 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 [docs]: http://www.django-rest-framework.org/
 [security-mail]: mailto:rest-framework-security@googlegroups.com
-[3.1-announcement]: http://www.django-rest-framework.org/topics/3.1-announcement/

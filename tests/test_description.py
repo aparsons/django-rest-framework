@@ -1,12 +1,13 @@
 # -- coding: utf-8 --
 
 from __future__ import unicode_literals
+
 from django.test import TestCase
-from django.utils.encoding import python_2_unicode_compatible, smart_text
+from django.utils.encoding import python_2_unicode_compatible
+
 from rest_framework.compat import apply_markdown
 from rest_framework.views import APIView
-from .description import ViewWithNonASCIICharactersInDocstring
-from .description import UTF8_TEST_DOCSTRING
+
 
 # We check that docstrings get nicely un-indented.
 DESCRIPTION = """an example docstring
@@ -79,16 +80,6 @@ class TestViewNamesAndDescriptions(TestCase):
             # hash style header #"""
 
         self.assertEqual(MockView().get_view_description(), DESCRIPTION)
-
-    def test_view_description_supports_unicode(self):
-        """
-        Unicode in docstrings should be respected.
-        """
-
-        self.assertEqual(
-            ViewWithNonASCIICharactersInDocstring().get_view_description(),
-            smart_text(UTF8_TEST_DOCSTRING)
-        )
 
     def test_view_description_can_be_empty(self):
         """

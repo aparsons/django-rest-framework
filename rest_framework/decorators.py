@@ -7,13 +7,15 @@ based views, as well as the `@detail_route` and `@list_route` decorators, which 
 used to annotate methods on viewsets that should be included by routers.
 """
 from __future__ import unicode_literals
-from django.utils import six
-from rest_framework.views import APIView
+
 import types
+
+from django.utils import six
+
+from rest_framework.views import APIView
 
 
 def api_view(http_method_names=None):
-
     """
     Decorator that converts a function-based view into an APIView subclass.
     Takes a list of allowed methods for the view as an argument.

@@ -1,6 +1,9 @@
 from django.test import TestCase
+
 from rest_framework import serializers
-from tests.models import NullableForeignKeySource, ForeignKeySource, ForeignKeyTarget
+from tests.models import (
+    ForeignKeySource, ForeignKeyTarget, NullableForeignKeySource
+)
 
 
 class ForeignKeyTargetSerializer(serializers.ModelSerializer):
@@ -12,6 +15,7 @@ class ForeignKeyTargetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ForeignKeyTarget
+        fields = '__all__'
 
 
 class ForeignKeySourceSerializer(serializers.ModelSerializer):
@@ -22,6 +26,7 @@ class ForeignKeySourceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ForeignKeySource
+        fields = '__all__'
 
 
 class NullableForeignKeySourceSerializer(serializers.ModelSerializer):
@@ -33,6 +38,7 @@ class NullableForeignKeySourceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = NullableForeignKeySource
+        fields = '__all__'
 
 
 # TODO: M2M Tests, FKTests (Non-nullable), One2One

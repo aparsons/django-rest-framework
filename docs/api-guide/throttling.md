@@ -41,7 +41,7 @@ The default throttling policy may be set globally, using the `DEFAULT_THROTTLE_C
 The rate descriptions used in `DEFAULT_THROTTLE_RATES` may include `second`, `minute`, `hour` or `day` as the throttle period.
 
 You can also set the throttling policy on a per-view or per-viewset basis,
-using the `APIView` class based views.
+using the `APIView` class-based views.
 
 	from rest_framework.response import Response
     from rest_framework.throttling import UserRateThrottle
@@ -148,7 +148,7 @@ For example, given the following views...
         throttle_scope = 'contacts'
         ...
 
-    class ContactDetailView(ApiView):
+    class ContactDetailView(APIView):
         throttle_scope = 'contacts'
         ...
 
@@ -184,7 +184,7 @@ If the `.wait()` method is implemented and the request is throttled, then a `Ret
 
 The following is an example of a rate throttle, that will randomly throttle 1 in every 10 requests.
 
-    class RandomRateThrottle(throttles.BaseThrottle):
+    class RandomRateThrottle(throttling.BaseThrottle):
         def allow_request(self, request, view):
             return random.randint(1, 10) == 1
 

@@ -2,8 +2,10 @@
 Tests to cover bulk create and update using serializers.
 """
 from __future__ import unicode_literals
+
 from django.test import TestCase
 from django.utils import six
+
 from rest_framework import serializers
 
 
@@ -44,6 +46,7 @@ class BulkCreateSerializerTests(TestCase):
         serializer = self.BookSerializer(data=data, many=True)
         self.assertEqual(serializer.is_valid(), True)
         self.assertEqual(serializer.validated_data, data)
+        self.assertEqual(serializer.errors, [])
 
     def test_bulk_create_errors(self):
         """
@@ -74,6 +77,7 @@ class BulkCreateSerializerTests(TestCase):
         serializer = self.BookSerializer(data=data, many=True)
         self.assertEqual(serializer.is_valid(), False)
         self.assertEqual(serializer.errors, expected_errors)
+        self.assertEqual(serializer.validated_data, [])
 
     def test_invalid_list_datatype(self):
         """

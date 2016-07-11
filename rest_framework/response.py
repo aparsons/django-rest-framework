@@ -5,9 +5,12 @@ it is initialized with unrendered data, instead of a pre-rendered string.
 The appropriate renderer is called during Django's template response rendering.
 """
 from __future__ import unicode_literals
-from django.utils.six.moves.http_client import responses
+
 from django.template.response import SimpleTemplateResponse
 from django.utils import six
+from django.utils.six.moves.http_client import responses
+
+from rest_framework.serializers import Serializer
 
 
 class Response(SimpleTemplateResponse):
@@ -27,6 +30,15 @@ class Response(SimpleTemplateResponse):
         For example being set automatically by the `APIView`.
         """
         super(Response, self).__init__(None, status=status)
+
+        if isinstance(data, Serializer):
+            msg = (
+                'You passed a Serializer instance as data, but '
+                'probably meant to pass serialized `.data` or '
+                '`.error`. representation.'
+            )
+            raise AssertionError(msg)
+
         self.data = data
         self.template_name = template_name
         self.exception = exception
@@ -39,14 +51,13 @@ class Response(SimpleTemplateResponse):
     @property
     def rendered_content(self):
         renderer = getattr(self, 'accepted_renderer', None)
-        media_type = getattr(self, 'accepted_media_type', None)
         context = getattr(self, 'renderer_context', None)
 
         assert renderer, ".accepted_renderer not set on Response"
-        assert media_type, ".accepted_media_type not set on Response"
         assert context, ".renderer_context not set on Response"
         context['response'] = self
 
+        media_type = renderer.media_type
         charset = renderer.charset
         content_type = self.content_type
 
@@ -86,7 +97,7 @@ class Response(SimpleTemplateResponse):
         state = super(Response, self).__getstate__()
         for key in (
             'accepted_renderer', 'renderer_context', 'resolver_match',
-            'client', 'request', 'wsgi_request'
+            'client', 'request', 'json', 'wsgi_request'
         ):
             if key in state:
                 del state[key]

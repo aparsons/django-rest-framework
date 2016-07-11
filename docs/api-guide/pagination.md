@@ -15,7 +15,9 @@ The pagination API can support either:
 
 The built-in styles currently all use links included as part of the content of the response. This style is more accessible when using the browsable API.
 
-Pagination is only performed automatically if you're using the generic views or viewsets. If you're using a regular `APIView`, you'll need to call into the pagination API yourself to ensure you return a paginated response. See the source code for the `mixins.ListMixin` and `generics.GenericAPIView` classes for an example.
+Pagination is only performed automatically if you're using the generic views or viewsets. If you're using a regular `APIView`, you'll need to call into the pagination API yourself to ensure you return a paginated response. See the source code for the `mixins.ListModelMixin` and `generics.GenericAPIView` classes for an example.
+
+Pagination can be turned off by setting the pagination class to `None`.
 
 ## Setting the pagination style
 
@@ -45,14 +47,14 @@ You can then apply your new style to a view using the `.pagination_class` attrib
 
     class BillingRecordsView(generics.ListAPIView):
         queryset = Billing.objects.all()
-        serializer = BillingRecordsSerializer
+        serializer_class = BillingRecordsSerializer
         pagination_class = LargeResultsSetPagination
 
 Or apply the style globally, using the `DEFAULT_PAGINATION_CLASS` settings key. For example:
 
     REST_FRAMEWORK = {
         'DEFAULT_PAGINATION_CLASS': 'apps.core.pagination.StandardResultsSetPagination'
-        }
+    }
 
 ---
 
@@ -95,6 +97,7 @@ The `PageNumberPagination` class includes a number of attributes that may be ove
 
 To set these attributes you should override the `PageNumberPagination` class, and then enable your custom pagination class as above.
 
+* `django_paginator_class` - The Django Paginator class to use. Default is `django.core.paginator.Paginator`, which should be fine for most use cases.
 * `page_size` - A numeric value indicating the page size. If set, this overrides the `PAGE_SIZE` setting. Defaults to the same value as the `PAGE_SIZE` settings key.
 * `page_query_param` - A string value indicating the name of the query parameter to use for the pagination control.
 * `page_size_query_param` - If set, this is a string value indicating the name of a query parameter that allows the client to set the page size on a per-request basis. Defaults to `None`, indicating that the client may not control the requested page size.
@@ -175,7 +178,7 @@ Proper usage of cursor pagination should have an ordering field that satisfies t
 * Should be a non-nullable value that can be coerced to a string.
 * The field should have a database index.
 
-Using an ordering field that does not satisfy these constraints will generally still work, but you'll be loosing some of the benefits of cursor pagination.
+Using an ordering field that does not satisfy these constraints will generally still work, but you'll be losing some of the benefits of cursor pagination.
 
 For more technical details on the implementation we use for cursor pagination, the ["Building cursors for the Disqus API"][disqus-cursor-api] blog post gives a good overview of the basic approach.
 
@@ -246,11 +249,11 @@ Let's modify the built-in `PageNumberPagination` style, so that instead of inclu
             previous_url = self.get_previous_link()
 
             if next_url is not None and previous_url is not None:
-                link = '<{next_url}; rel="next">, <{previous_url}; rel="prev">'
+                link = '<{next_url}>; rel="next", <{previous_url}>; rel="prev"'
             elif next_url is not None:
-                link = '<{next_url}; rel="next">'
+                link = '<{next_url}>; rel="next"'
             elif previous_url is not None:
-                link = '<{previous_url}; rel="prev">'
+                link = '<{previous_url}>; rel="prev"'
             else:
                 link = ''
 
@@ -314,4 +317,4 @@ The [`DRF-extensions` package][drf-extensions] includes a [`PaginateByMaxMixin` 
 [link-header]: ../img/link-header-pagination.png
 [drf-extensions]: http://chibisov.github.io/drf-extensions/docs/
 [paginate-by-max-mixin]: http://chibisov.github.io/drf-extensions/docs/#paginatebymaxmixin
-[disqus-cursor-api]: http://cramer.io/2011/03/08/building-cursors-for-the-disqus-api/
+[disqus-cursor-api]: http://cramer.io/2011/03/08/building-cursors-for-the-disqus-api

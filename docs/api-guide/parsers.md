@@ -35,7 +35,7 @@ The default set of parsers may be set globally, using the `DEFAULT_PARSER_CLASSE
     }
 
 You can also set the parsers used for an individual view, or viewset,
-using the `APIView` class based views.
+using the `APIView` class-based views.
 
     from rest_framework.parsers import JSONParser
     from rest_framework.response import Response
@@ -51,6 +51,9 @@ using the `APIView` class based views.
             return Response({'received data': request.data})
 
 Or, if you're using the `@api_view` decorator with function based views.
+
+    from rest_framework.decorators import api_view
+    from rest_framework.decorators import parser_classes
 
     @api_view(['POST'])
     @parser_classes((JSONParser,))
@@ -90,7 +93,9 @@ You will typically want to use both `FormParser` and `MultiPartParser` together 
 
 Parses raw file upload content.  The `request.data` property will be a dictionary with a single key `'file'` containing the uploaded file.
 
-If the view used with `FileUploadParser` is called with a `filename` URL keyword argument, then that argument will be used as the filename.  If it is called without a `filename` URL keyword argument, then the client must set the filename in the `Content-Disposition` HTTP header.  For example `Content-Disposition: attachment; filename=upload.jpg`.
+If the view used with `FileUploadParser` is called with a `filename` URL keyword argument, then that argument will be used as the filename.
+
+If it is called without a `filename` URL keyword argument, then the client must set the filename in the `Content-Disposition` HTTP header.  For example `Content-Disposition: attachment; filename=upload.jpg`.
 
 **.media_type**: `*/*`
 
@@ -102,6 +107,7 @@ If the view used with `FileUploadParser` is called with a `filename` URL keyword
 
 ##### Basic usage example:
 
+    # views.py
     class FileUploadView(views.APIView):
         parser_classes = (FileUploadParser,)
 
@@ -112,6 +118,11 @@ If the view used with `FileUploadParser` is called with a `filename` URL keyword
             # ...
             return Response(status=204)
 
+    # urls.py
+    urlpatterns = [
+        # ...
+        url(r'^upload/(?P<filename>[^/]+)$', FileUploadView.as_view())
+    ]
 
 ---
 
@@ -144,17 +155,16 @@ By default this will include the following keys: `view`, `request`, `args`, `kwa
 The following is an example plaintext parser that will populate the `request.data` property with a string representing the body of the request.
 
     class PlainTextParser(BaseParser):
-    """
-    Plain text parser.
-    """
-
-    media_type = 'text/plain'
-
-    def parse(self, stream, media_type=None, parser_context=None):
         """
-        Simply return a string representing the body of the request.
+        Plain text parser.
         """
-        return stream.read()
+        media_type = 'text/plain'
+
+        def parse(self, stream, media_type=None, parser_context=None):
+            """
+            Simply return a string representing the body of the request.
+            """
+            return stream.read()
 
 ---
 

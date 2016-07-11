@@ -67,7 +67,7 @@ Now that we've got some users to work with, we'd better add representations of t
 
 Because `'snippets'` is a *reverse* relationship on the User model, it will not be included by default when using the `ModelSerializer` class, so we needed to add an explicit field for it.
 
-We'll also add a couple of views to `views.py`.  We'd like to just use read-only views for the user representations, so we'll use the `ListAPIView` and `RetrieveAPIView` generic class based views.
+We'll also add a couple of views to `views.py`.  We'd like to just use read-only views for the user representations, so we'll use the `ListAPIView` and `RetrieveAPIView` generic class-based views.
 
     from django.contrib.auth.models import User
 
@@ -146,7 +146,7 @@ And, at the end of the file, add a pattern to include the login and logout views
                                    namespace='rest_framework')),
     ]
 
-The `r'^api-auth/'` part of pattern can actually be whatever URL you want to use.  The only restriction is that the included urls must use the `'rest_framework'` namespace.
+The `r'^api-auth/'` part of pattern can actually be whatever URL you want to use.  The only restriction is that the included urls must use the `'rest_framework'` namespace. In Django 1.9+, REST framework will set the namespace, so you may leave it out.
 
 Now if you open up the browser again and refresh the page you'll see a 'Login' link in the top right of the page.  If you log in as one of the users you created earlier, you'll be able to create code snippets again.
 
@@ -206,7 +206,7 @@ If we try to create a snippet without authenticating, we'll get an error:
 
 We can make a successful request by including the username and password of one of the users we created earlier.
 
-    http -a tom:password POST http://127.0.0.1:8000/snippets/ code="print 789"
+    http -a tom:password123 POST http://127.0.0.1:8000/snippets/ code="print 789"
 
     {
         "id": 5,

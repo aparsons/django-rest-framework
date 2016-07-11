@@ -1,10 +1,15 @@
-from decimal import Decimal
-from django.utils import timezone
-from rest_framework import serializers
 import datetime
-import django
-import pytest
+import os
 import uuid
+from decimal import Decimal
+
+import pytest
+from django.http import QueryDict
+from django.test import TestCase, override_settings
+from django.utils import six, timezone
+
+import rest_framework
+from rest_framework import serializers
 
 
 # Tests for field keyword arguments and core functionality.
@@ -186,6 +191,24 @@ class TestInitial:
         }
 
 
+class TestInitialWithCallable:
+    def setup(self):
+        def initial_value():
+            return 123
+
+        class TestSerializer(serializers.Serializer):
+            initial_field = serializers.IntegerField(initial=initial_value)
+        self.serializer = TestSerializer()
+
+    def test_initial_should_accept_callable(self):
+        """
+        Follows the default ``Field.initial`` behaviour where they accept a
+        callable to produce the initial value"""
+        assert self.serializer.data == {
+            'initial_field': 123,
+        }
+
+
 class TestLabel:
     def setup(self):
         class TestSerializer(serializers.Serializer):
@@ -222,47 +245,85 @@ class TestInvalidErrorKey:
 
 
 class TestBooleanHTMLInput:
-    def setup(self):
-        class TestSerializer(serializers.Serializer):
-            archived = serializers.BooleanField()
-        self.Serializer = TestSerializer
-
     def test_empty_html_checkbox(self):
         """
         HTML checkboxes do not send any value, but should be treated
         as `False` by BooleanField.
         """
-        # This class mocks up a dictionary like object, that behaves
-        # as if it was returned for multipart or urlencoded data.
-        class MockHTMLDict(dict):
-            getlist = None
-        serializer = self.Serializer(data=MockHTMLDict())
+        class TestSerializer(serializers.Serializer):
+            archived = serializers.BooleanField()
+
+        serializer = TestSerializer(data=QueryDict(''))
+        assert serializer.is_valid()
+        assert serializer.validated_data == {'archived': False}
+
+    def test_empty_html_checkbox_not_required(self):
+        """
+        HTML checkboxes do not send any value, but should be treated
+        as `False` by BooleanField, even if the field is required=False.
+        """
+        class TestSerializer(serializers.Serializer):
+            archived = serializers.BooleanField(required=False)
+
+        serializer = TestSerializer(data=QueryDict(''))
         assert serializer.is_valid()
         assert serializer.validated_data == {'archived': False}
 
 
-class MockHTMLDict(dict):
-    """
-    This class mocks up a dictionary like object, that behaves
-    as if it was returned for multipart or urlencoded data.
-    """
-    getlist = None
-
-
 class TestHTMLInput:
-    def test_empty_html_charfield(self):
+    def test_empty_html_charfield_with_default(self):
         class TestSerializer(serializers.Serializer):
             message = serializers.CharField(default='happy')
 
-        serializer = TestSerializer(data=MockHTMLDict())
+        serializer = TestSerializer(data=QueryDict(''))
         assert serializer.is_valid()
         assert serializer.validated_data == {'message': 'happy'}
+
+    def test_empty_html_charfield_without_default(self):
+        class TestSerializer(serializers.Serializer):
+            message = serializers.CharField(allow_blank=True)
+
+        serializer = TestSerializer(data=QueryDict('message='))
+        assert serializer.is_valid()
+        assert serializer.validated_data == {'message': ''}
+
+    def test_empty_html_charfield_without_default_not_required(self):
+        class TestSerializer(serializers.Serializer):
+            message = serializers.CharField(allow_blank=True, required=False)
+
+        serializer = TestSerializer(data=QueryDict('message='))
+        assert serializer.is_valid()
+        assert serializer.validated_data == {'message': ''}
+
+    def test_empty_html_integerfield(self):
+        class TestSerializer(serializers.Serializer):
+            message = serializers.IntegerField(default=123)
+
+        serializer = TestSerializer(data=QueryDict('message='))
+        assert serializer.is_valid()
+        assert serializer.validated_data == {'message': 123}
+
+    def test_empty_html_uuidfield_with_default(self):
+        class TestSerializer(serializers.Serializer):
+            message = serializers.UUIDField(default=uuid.uuid4)
+
+        serializer = TestSerializer(data=QueryDict('message='))
+        assert serializer.is_valid()
+        assert list(serializer.validated_data.keys()) == ['message']
+
+    def test_empty_html_uuidfield_with_optional(self):
+        class TestSerializer(serializers.Serializer):
+            message = serializers.UUIDField(required=False)
+
+        serializer = TestSerializer(data=QueryDict('message='))
+        assert serializer.is_valid()
+        assert list(serializer.validated_data.keys()) == []
 
     def test_empty_html_charfield_allow_null(self):
         class TestSerializer(serializers.Serializer):
             message = serializers.CharField(allow_null=True)
 
-        serializer = TestSerializer(data=MockHTMLDict({'message': ''}))
+        serializer = TestSerializer(data=QueryDict('message='))
         assert serializer.is_valid()
         assert serializer.validated_data == {'message': None}
 
@@ -270,7 +331,7 @@ class TestHTMLInput:
         class TestSerializer(serializers.Serializer):
             expiry = serializers.DateField(allow_null=True)
 
-        serializer = TestSerializer(data=MockHTMLDict({'expiry': ''}))
+        serializer = TestSerializer(data=QueryDict('expiry='))
         assert serializer.is_valid()
         assert serializer.validated_data == {'expiry': None}
 
@@ -278,7 +339,7 @@ class TestHTMLInput:
         class TestSerializer(serializers.Serializer):
             message = serializers.CharField(allow_null=True, allow_blank=True)
 
-        serializer = TestSerializer(data=MockHTMLDict({'message': ''}))
+        serializer = TestSerializer(data=QueryDict('message='))
         assert serializer.is_valid()
         assert serializer.validated_data == {'message': ''}
 
@@ -286,9 +347,25 @@ class TestHTMLInput:
         class TestSerializer(serializers.Serializer):
             message = serializers.CharField(required=False)
 
-        serializer = TestSerializer(data=MockHTMLDict())
+        serializer = TestSerializer(data=QueryDict(''))
         assert serializer.is_valid()
         assert serializer.validated_data == {}
+
+    def test_querydict_list_input(self):
+        class TestSerializer(serializers.Serializer):
+            scores = serializers.ListField(child=serializers.IntegerField())
+
+        serializer = TestSerializer(data=QueryDict('scores=1&scores=3'))
+        assert serializer.is_valid()
+        assert serializer.validated_data == {'scores': [1, 3]}
+
+    def test_querydict_list_input_only_one_input(self):
+        class TestSerializer(serializers.Serializer):
+            scores = serializers.ListField(child=serializers.IntegerField())
+
+        serializer = TestSerializer(data=QueryDict('scores=1&'))
+        assert serializer.is_valid()
+        assert serializer.validated_data == {'scores': [1]}
 
 
 class TestCreateOnlyDefault:
@@ -407,6 +484,18 @@ class TestBooleanField(FieldValues):
     }
     field = serializers.BooleanField()
 
+    def test_disallow_unhashable_collection_types(self):
+        inputs = (
+            [],
+            {},
+        )
+        field = serializers.BooleanField()
+        for input_value in inputs:
+            with pytest.raises(serializers.ValidationError) as exc_info:
+                field.run_validation(input_value)
+            expected = ['"{0}" is not a valid boolean.'.format(input_value)]
+            assert exc_info.value.detail == expected
+
 
 class TestNullBooleanField(FieldValues):
     """
@@ -461,6 +550,13 @@ class TestCharField(FieldValues):
     def test_trim_whitespace_disabled(self):
         field = serializers.CharField(trim_whitespace=False)
         assert field.to_internal_value(' abc ') == ' abc '
+
+    def test_disallow_blank_with_trim_whitespace(self):
+        field = serializers.CharField(allow_blank=False, trim_whitespace=True)
+
+        with pytest.raises(serializers.ValidationError) as exc_info:
+            field.run_validation('   ')
+        assert exc_info.value.detail == ['This field may not be blank.']
 
 
 class TestEmailField(FieldValues):
@@ -526,15 +622,101 @@ class TestUUIDField(FieldValues):
     """
     valid_inputs = {
         '825d7aeb-05a9-45b5-a5b7-05df87923cda': uuid.UUID('825d7aeb-05a9-45b5-a5b7-05df87923cda'),
-        '825d7aeb05a945b5a5b705df87923cda': uuid.UUID('825d7aeb-05a9-45b5-a5b7-05df87923cda')
+        '825d7aeb05a945b5a5b705df87923cda': uuid.UUID('825d7aeb-05a9-45b5-a5b7-05df87923cda'),
+        'urn:uuid:213b7d9b-244f-410d-828c-dabce7a2615d': uuid.UUID('213b7d9b-244f-410d-828c-dabce7a2615d'),
+        284758210125106368185219588917561929842: uuid.UUID('d63a6fb6-88d5-40c7-a91c-9edf73283072')
     }
     invalid_inputs = {
-        '825d7aeb-05a9-45b5-a5b7': ['"825d7aeb-05a9-45b5-a5b7" is not a valid UUID.']
+        '825d7aeb-05a9-45b5-a5b7': ['"825d7aeb-05a9-45b5-a5b7" is not a valid UUID.'],
+        (1, 2, 3): ['"(1, 2, 3)" is not a valid UUID.']
     }
     outputs = {
         uuid.UUID('825d7aeb-05a9-45b5-a5b7-05df87923cda'): '825d7aeb-05a9-45b5-a5b7-05df87923cda'
     }
     field = serializers.UUIDField()
+
+    def _test_format(self, uuid_format, formatted_uuid_0):
+        field = serializers.UUIDField(format=uuid_format)
+        assert field.to_representation(uuid.UUID(int=0)) == formatted_uuid_0
+        assert field.to_internal_value(formatted_uuid_0) == uuid.UUID(int=0)
+
+    def test_formats(self):
+        self._test_format('int', 0)
+        self._test_format('hex_verbose', '00000000-0000-0000-0000-000000000000')
+        self._test_format('urn', 'urn:uuid:00000000-0000-0000-0000-000000000000')
+        self._test_format('hex', '0' * 32)
+
+
+class TestIPAddressField(FieldValues):
+    """
+    Valid and invalid values for `IPAddressField`
+    """
+    valid_inputs = {
+        '127.0.0.1': '127.0.0.1',
+        '192.168.33.255': '192.168.33.255',
+        '2001:0db8:85a3:0042:1000:8a2e:0370:7334': '2001:db8:85a3:42:1000:8a2e:370:7334',
+        '2001:cdba:0:0:0:0:3257:9652': '2001:cdba::3257:9652',
+        '2001:cdba::3257:9652': '2001:cdba::3257:9652'
+    }
+    invalid_inputs = {
+        '127001': ['Enter a valid IPv4 or IPv6 address.'],
+        '127.122.111.2231': ['Enter a valid IPv4 or IPv6 address.'],
+        '2001:::9652': ['Enter a valid IPv4 or IPv6 address.'],
+        '2001:0db8:85a3:0042:1000:8a2e:0370:73341': ['Enter a valid IPv4 or IPv6 address.'],
+    }
+    outputs = {}
+    field = serializers.IPAddressField()
+
+
+class TestIPv4AddressField(FieldValues):
+    """
+    Valid and invalid values for `IPAddressField`
+    """
+    valid_inputs = {
+        '127.0.0.1': '127.0.0.1',
+        '192.168.33.255': '192.168.33.255',
+    }
+    invalid_inputs = {
+        '127001': ['Enter a valid IPv4 address.'],
+        '127.122.111.2231': ['Enter a valid IPv4 address.'],
+    }
+    outputs = {}
+    field = serializers.IPAddressField(protocol='IPv4')
+
+
+class TestIPv6AddressField(FieldValues):
+    """
+    Valid and invalid values for `IPAddressField`
+    """
+    valid_inputs = {
+        '2001:0db8:85a3:0042:1000:8a2e:0370:7334': '2001:db8:85a3:42:1000:8a2e:370:7334',
+        '2001:cdba:0:0:0:0:3257:9652': '2001:cdba::3257:9652',
+        '2001:cdba::3257:9652': '2001:cdba::3257:9652'
+    }
+    invalid_inputs = {
+        '2001:::9652': ['Enter a valid IPv4 or IPv6 address.'],
+        '2001:0db8:85a3:0042:1000:8a2e:0370:73341': ['Enter a valid IPv4 or IPv6 address.'],
+    }
+    outputs = {}
+    field = serializers.IPAddressField(protocol='IPv6')
+
+
+class TestFilePathField(FieldValues):
+    """
+    Valid and invalid values for `FilePathField`
+    """
+
+    valid_inputs = {
+        __file__: __file__,
+    }
+    invalid_inputs = {
+        'wrong_path': ['"wrong_path" is not a valid path choice.']
+    }
+    outputs = {
+    }
+    field = serializers.FilePathField(
+        path=os.path.abspath(os.path.dirname(__file__))
+    )
 
 
 # Number types...
@@ -647,14 +829,17 @@ class TestDecimalField(FieldValues):
         0: Decimal('0'),
         12.3: Decimal('12.3'),
         0.1: Decimal('0.1'),
+        '2E+1': Decimal('20'),
     }
     invalid_inputs = (
         ('abc', ["A valid number is required."]),
         (Decimal('Nan'), ["A valid number is required."]),
         (Decimal('Inf'), ["A valid number is required."]),
         ('12.345', ["Ensure that there are no more than 3 digits in total."]),
+        (200000000000.0, ["Ensure that there are no more than 3 digits in total."]),
         ('0.01', ["Ensure that there are no more than 1 decimal places."]),
-        (123, ["Ensure that there are no more than 2 digits before the decimal point."])
+        (123, ["Ensure that there are no more than 2 digits before the decimal point."]),
+        ('2E+2', ["Ensure that there are no more than 2 digits before the decimal point."])
     )
     outputs = {
         '1': '1.0',
@@ -710,6 +895,37 @@ class TestNoStringCoercionDecimalField(FieldValues):
     )
 
 
+class TestLocalizedDecimalField(TestCase):
+    @override_settings(USE_L10N=True, LANGUAGE_CODE='pl')
+    def test_to_internal_value(self):
+        field = serializers.DecimalField(max_digits=2, decimal_places=1, localize=True)
+        self.assertEqual(field.to_internal_value('1,1'), Decimal('1.1'))
+
+    @override_settings(USE_L10N=True, LANGUAGE_CODE='pl')
+    def test_to_representation(self):
+        field = serializers.DecimalField(max_digits=2, decimal_places=1, localize=True)
+        self.assertEqual(field.to_representation(Decimal('1.1')), '1,1')
+
+    def test_localize_forces_coerce_to_string(self):
+        field = serializers.DecimalField(max_digits=2, decimal_places=1, coerce_to_string=False, localize=True)
+        self.assertTrue(isinstance(field.to_representation(Decimal('1.1')), six.string_types))
+
+
+class TestNoDecimalPlaces(FieldValues):
+    valid_inputs = {
+        '0.12345': Decimal('0.12345'),
+    }
+    invalid_inputs = {
+        '0.1234567': ['Ensure that there are no more than 6 digits in total.']
+    }
+    outputs = {
+        '1.2345': '1.2345',
+        '0': '0',
+        '1.1': '1.1',
+    }
+    field = serializers.DecimalField(max_digits=6, decimal_places=None)
+
+
 # Date & time serializers...
 
 class TestDateField(FieldValues):
@@ -726,7 +942,11 @@ class TestDateField(FieldValues):
         datetime.datetime(2001, 1, 1, 12, 00): ['Expected a date but got a datetime.'],
     }
     outputs = {
-        datetime.date(2001, 1, 1): '2001-01-01'
+        datetime.date(2001, 1, 1): '2001-01-01',
+        '2001-01-01': '2001-01-01',
+        six.text_type('2016-01-10'): '2016-01-10',
+        None: None,
+        '': None,
     }
     field = serializers.DateField()
 
@@ -780,7 +1000,7 @@ class TestDateTimeField(FieldValues):
         datetime.datetime(2001, 1, 1, 13, 00): datetime.datetime(2001, 1, 1, 13, 00, tzinfo=timezone.UTC()),
         datetime.datetime(2001, 1, 1, 13, 00, tzinfo=timezone.UTC()): datetime.datetime(2001, 1, 1, 13, 00, tzinfo=timezone.UTC()),
         # Django 1.4 does not support timezone string parsing.
-        '2001-01-01T14:00+01:00' if (django.VERSION > (1, 4)) else '2001-01-01T13:00Z': datetime.datetime(2001, 1, 1, 13, 00, tzinfo=timezone.UTC())
+        '2001-01-01T13:00Z': datetime.datetime(2001, 1, 1, 13, 00, tzinfo=timezone.UTC())
     }
     invalid_inputs = {
         'abc': ['Datetime has wrong format. Use one of these formats instead: YYYY-MM-DDThh:mm[:ss[.uuuuuu]][+HH:MM|-HH:MM|Z].'],
@@ -789,7 +1009,11 @@ class TestDateTimeField(FieldValues):
     }
     outputs = {
         datetime.datetime(2001, 1, 1, 13, 00): '2001-01-01T13:00:00',
-        datetime.datetime(2001, 1, 1, 13, 00, tzinfo=timezone.UTC()): '2001-01-01T13:00:00Z'
+        datetime.datetime(2001, 1, 1, 13, 00, tzinfo=timezone.UTC()): '2001-01-01T13:00:00Z',
+        '2001-01-01T00:00:00': '2001-01-01T00:00:00',
+        six.text_type('2016-01-10T00:00:00'): '2016-01-10T00:00:00',
+        None: None,
+        '': None,
     }
     field = serializers.DateTimeField(default_timezone=timezone.UTC())
 
@@ -858,7 +1082,11 @@ class TestTimeField(FieldValues):
         '99:99': ['Time has wrong format. Use one of these formats instead: hh:mm[:ss[.uuuuuu]].'],
     }
     outputs = {
-        datetime.time(13, 00): '13:00:00'
+        datetime.time(13, 0): '13:00:00',
+        datetime.time(0, 0): '00:00:00',
+        '00:00:00': '00:00:00',
+        None: None,
+        '': None,
     }
     field = serializers.TimeField()
 
@@ -901,6 +1129,27 @@ class TestNoOutputFormatTimeField(FieldValues):
     field = serializers.TimeField(format=None)
 
 
+class TestDurationField(FieldValues):
+    """
+    Valid and invalid values for `DurationField`.
+    """
+    valid_inputs = {
+        '13': datetime.timedelta(seconds=13),
+        '3 08:32:01.000123': datetime.timedelta(days=3, hours=8, minutes=32, seconds=1, microseconds=123),
+        '08:01': datetime.timedelta(minutes=8, seconds=1),
+        datetime.timedelta(days=3, hours=8, minutes=32, seconds=1, microseconds=123): datetime.timedelta(days=3, hours=8, minutes=32, seconds=1, microseconds=123),
+        3600: datetime.timedelta(hours=1),
+    }
+    invalid_inputs = {
+        'abc': ['Duration has wrong format. Use one of these formats instead: [DD] [HH:[MM:]]ss[.uuuuuu].'],
+        '3 08:32 01.123': ['Duration has wrong format. Use one of these formats instead: [DD] [HH:[MM:]]ss[.uuuuuu].'],
+    }
+    outputs = {
+        datetime.timedelta(days=3, hours=8, minutes=32, seconds=1, microseconds=123): '3 08:32:01.000123',
+    }
+    field = serializers.DurationField()
+
+
 # Choice types...
 
 class TestChoiceField(FieldValues):
@@ -917,7 +1166,8 @@ class TestChoiceField(FieldValues):
     }
     outputs = {
         'good': 'good',
-        '': ''
+        '': '',
+        'amazing': 'amazing',
     }
     field = serializers.ChoiceField(
         choices=[
@@ -941,6 +1191,50 @@ class TestChoiceField(FieldValues):
         )
         output = field.run_validation('')
         assert output == ''
+
+    def test_allow_null(self):
+        """
+        If `allow_null=True` then '' on HTML forms is treated as None.
+        """
+        field = serializers.ChoiceField(
+            allow_null=True,
+            choices=[
+                1, 2, 3
+            ]
+        )
+        field.field_name = 'example'
+        value = field.get_value(QueryDict('example='))
+        assert value is None
+        output = field.run_validation(None)
+        assert output is None
+
+    def test_iter_options(self):
+        """
+        iter_options() should return a list of options and option groups.
+        """
+        field = serializers.ChoiceField(
+            choices=[
+                ('Numbers', ['integer', 'float']),
+                ('Strings', ['text', 'email', 'url']),
+                'boolean'
+            ]
+        )
+        items = list(field.iter_options())
+
+        assert items[0].start_option_group
+        assert items[0].label == 'Numbers'
+        assert items[1].value == 'integer'
+        assert items[2].value == 'float'
+        assert items[3].end_option_group
+
+        assert items[4].start_option_group
+        assert items[4].label == 'Strings'
+        assert items[5].value == 'text'
+        assert items[6].value == 'email'
+        assert items[7].value == 'url'
+        assert items[8].end_option_group
+
+        assert items[9].value == 'boolean'
 
 
 class TestChoiceFieldWithType(FieldValues):
@@ -988,6 +1282,66 @@ class TestChoiceFieldWithListChoices(FieldValues):
     field = serializers.ChoiceField(choices=('poor', 'medium', 'good'))
 
 
+class TestChoiceFieldWithGroupedChoices(FieldValues):
+    """
+    Valid and invalid values for a `Choice` field that uses a grouped list for the
+    choices, rather than a list of pairs of (`value`, `description`).
+    """
+    valid_inputs = {
+        'poor': 'poor',
+        'medium': 'medium',
+        'good': 'good',
+    }
+    invalid_inputs = {
+        'awful': ['"awful" is not a valid choice.']
+    }
+    outputs = {
+        'good': 'good'
+    }
+    field = serializers.ChoiceField(
+        choices=[
+            (
+                'Category',
+                (
+                    ('poor', 'Poor quality'),
+                    ('medium', 'Medium quality'),
+                ),
+            ),
+            ('good', 'Good quality'),
+        ]
+    )
+
+
+class TestChoiceFieldWithMixedChoices(FieldValues):
+    """
+    Valid and invalid values for a `Choice` field that uses a single paired or
+    grouped.
+    """
+    valid_inputs = {
+        'poor': 'poor',
+        'medium': 'medium',
+        'good': 'good',
+    }
+    invalid_inputs = {
+        'awful': ['"awful" is not a valid choice.']
+    }
+    outputs = {
+        'good': 'good'
+    }
+    field = serializers.ChoiceField(
+        choices=[
+            (
+                'Category',
+                (
+                    ('poor', 'Poor quality'),
+                ),
+            ),
+            'medium',
+            ('good', 'Good quality'),
+        ]
+    )
+
+
 class TestMultipleChoiceField(FieldValues):
     """
     Valid and invalid values for `MultipleChoiceField`.
@@ -1002,7 +1356,7 @@ class TestMultipleChoiceField(FieldValues):
         ('aircon', 'incorrect'): ['"incorrect" is not a valid choice.']
     }
     outputs = [
-        (['aircon', 'manual'], set(['aircon', 'manual']))
+        (['aircon', 'manual', 'incorrect'], set(['aircon', 'manual', 'incorrect']))
     ]
     field = serializers.MultipleChoiceField(
         choices=[
@@ -1010,6 +1364,34 @@ class TestMultipleChoiceField(FieldValues):
             ('manual', 'Manual drive'),
             ('diesel', 'Diesel'),
         ]
+    )
+
+    def test_against_partial_and_full_updates(self):
+        field = serializers.MultipleChoiceField(choices=(('a', 'a'), ('b', 'b')))
+        field.partial = False
+        assert field.get_value(QueryDict({})) == []
+        field.partial = True
+        assert field.get_value(QueryDict({})) == rest_framework.fields.empty
+
+
+class TestEmptyMultipleChoiceField(FieldValues):
+    """
+    Invalid values for `MultipleChoiceField(allow_empty=False)`.
+    """
+    valid_inputs = {
+    }
+    invalid_inputs = (
+        ([], ['This selection may not be empty.']),
+    )
+    outputs = [
+    ]
+    field = serializers.MultipleChoiceField(
+        choices=[
+            ('consistency', 'Consistency'),
+            ('availability', 'Availability'),
+            ('partition', 'Partition tolerance'),
+        ],
+        allow_empty=False
     )
 
 
@@ -1106,17 +1488,48 @@ class TestListField(FieldValues):
     """
     valid_inputs = [
         ([1, 2, 3], [1, 2, 3]),
-        (['1', '2', '3'], [1, 2, 3])
+        (['1', '2', '3'], [1, 2, 3]),
+        ([], [])
     ]
     invalid_inputs = [
         ('not a list', ['Expected a list of items but got type "str".']),
-        ([1, 2, 'error'], ['A valid integer is required.'])
+        ([1, 2, 'error'], ['A valid integer is required.']),
+        ({'one': 'two'}, ['Expected a list of items but got type "dict".'])
     ]
     outputs = [
         ([1, 2, 3], [1, 2, 3]),
         (['1', '2', '3'], [1, 2, 3])
     ]
     field = serializers.ListField(child=serializers.IntegerField())
+
+    def test_no_source_on_child(self):
+        with pytest.raises(AssertionError) as exc_info:
+            serializers.ListField(child=serializers.IntegerField(source='other'))
+
+        assert str(exc_info.value) == (
+            "The `source` argument is not meaningful when applied to a `child=` field. "
+            "Remove `source=` from the field declaration."
+        )
+
+    def test_collection_types_are_invalid_input(self):
+        field = serializers.ListField(child=serializers.CharField())
+        input_value = ({'one': 'two'})
+
+        with pytest.raises(serializers.ValidationError) as exc_info:
+            field.to_internal_value(input_value)
+        assert exc_info.value.detail == ['Expected a list of items but got type "dict".']
+
+
+class TestEmptyListField(FieldValues):
+    """
+    Values for `ListField` with allow_empty=False flag.
+    """
+    valid_inputs = {}
+    invalid_inputs = [
+        ([], ['This list may not be empty.'])
+    ]
+    outputs = {}
+    field = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
 
 
 class TestUnvalidatedListField(FieldValues):
@@ -1151,6 +1564,15 @@ class TestDictField(FieldValues):
     ]
     field = serializers.DictField(child=serializers.CharField())
 
+    def test_no_source_on_child(self):
+        with pytest.raises(AssertionError) as exc_info:
+            serializers.DictField(child=serializers.CharField(source='other'))
+
+        assert str(exc_info.value) == (
+            "The `source` argument is not meaningful when applied to a `child=` field. "
+            "Remove `source=` from the field declaration."
+        )
+
 
 class TestUnvalidatedDictField(FieldValues):
     """
@@ -1166,6 +1588,58 @@ class TestUnvalidatedDictField(FieldValues):
         ({'a': 1, 'b': [4, 5, 6]}, {'a': 1, 'b': [4, 5, 6]}),
     ]
     field = serializers.DictField()
+
+
+class TestJSONField(FieldValues):
+    """
+    Values for `JSONField`.
+    """
+    valid_inputs = [
+        ({
+            'a': 1,
+            'b': ['some', 'list', True, 1.23],
+            '3': None
+        }, {
+            'a': 1,
+            'b': ['some', 'list', True, 1.23],
+            '3': None
+        }),
+    ]
+    invalid_inputs = [
+        ({'a': set()}, ['Value must be valid JSON.']),
+    ]
+    outputs = [
+        ({
+            'a': 1,
+            'b': ['some', 'list', True, 1.23],
+            '3': 3
+        }, {
+            'a': 1,
+            'b': ['some', 'list', True, 1.23],
+            '3': 3
+        }),
+    ]
+    field = serializers.JSONField()
+
+
+class TestBinaryJSONField(FieldValues):
+    """
+    Values for `JSONField` with binary=True.
+    """
+    valid_inputs = [
+        (b'{"a": 1, "3": null, "b": ["some", "list", true, 1.23]}', {
+            'a': 1,
+            'b': ['some', 'list', True, 1.23],
+            '3': None
+        }),
+    ]
+    invalid_inputs = [
+        ('{"a": "unterminated string}', ['Value must be valid JSON.']),
+    ]
+    outputs = [
+        (['some', 'list', True, 1.23], b'["some", "list", true, 1.23]'),
+    ]
+    field = serializers.JSONField(binary=True)
 
 
 # Tests for FieldField.

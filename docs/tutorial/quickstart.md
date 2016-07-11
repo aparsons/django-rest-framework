@@ -28,7 +28,7 @@ Now sync your database for the first time:
 
     python manage.py migrate
 
-We'll also create an initial user named `admin` with a password of `password`. We'll authenticate as that user later in our example.
+We'll also create an initial user named `admin` with a password of `password123`. We'll authenticate as that user later in our example.
 
     python manage.py createsuperuser
 
@@ -68,7 +68,7 @@ Right, we'd better write some views then.  Open `tutorial/quickstart/views.py` a
         """
         API endpoint that allows users to be viewed or edited.
         """
-        queryset = User.objects.all()
+        queryset = User.objects.all().order_by('-date_joined')
         serializer_class = UserSerializer
 
 
@@ -82,8 +82,6 @@ Right, we'd better write some views then.  Open `tutorial/quickstart/views.py` a
 Rather than write multiple views we're grouping together all the common behavior into classes called `ViewSets`.
 
 We can easily break these down into individual views if we need to, but using viewsets keeps the view logic nicely organized as well as being very concise.
-
-For trivial cases you can simply set a `model` attribute on the `ViewSet` class and the serializer and queryset will be automatically generated for you.  Setting the `queryset` and/or `serializer_class` attributes gives you more explicit control of the API behaviour, and is the recommended style for most applications.
 
 ## URLs
 
@@ -106,7 +104,7 @@ Okay, now let's wire up the API URLs.  On to `tutorial/urls.py`...
 
 Because we're using viewsets instead of views, we can automatically generate the URL conf for our API, by simply registering the viewsets with a router class.
 
-Again, if we need more control over the API URLs we can simply drop down to using regular class based views, and writing the URL conf explicitly.
+Again, if we need more control over the API URLs we can simply drop down to using regular class-based views, and writing the URL conf explicitly.
 
 Finally, we're including default login and logout views for use with the browsable API.  That's optional, but useful if your API requires authentication and you want to use the browsable API.
 
@@ -132,11 +130,11 @@ Okay, we're done.
 
 We're now ready to test the API we've built.  Let's fire up the server from the command line.
 
-    python ./manage.py runserver
+    python manage.py runserver
 
 We can now access our API, both from the command-line, using tools like `curl`...
 
-    bash: curl -H 'Accept: application/json; indent=4' -u admin:password http://127.0.0.1:8000/users/
+    bash: curl -H 'Accept: application/json; indent=4' -u admin:password123 http://127.0.0.1:8000/users/
     {
         "count": 2,
         "next": null,
@@ -159,7 +157,7 @@ We can now access our API, both from the command-line, using tools like `curl`..
 
 Or using the [httpie][httpie], command line tool...
 
-    bash: http -a username:password http://127.0.0.1:8000/users/
+    bash: http -a admin:password123 http://127.0.0.1:8000/users/
 
     HTTP/1.1 200 OK
     ...
@@ -184,7 +182,7 @@ Or using the [httpie][httpie], command line tool...
     }
 
 
-Or directly through the browser...
+Or directly through the browser, by going to the URL `http://127.0.0.1:8000/users/`...
 
 ![Quick start image][image]
 

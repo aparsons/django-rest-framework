@@ -1,13 +1,16 @@
 # coding: utf-8
 from __future__ import unicode_literals
+
+import re
+
 from django.utils.translation import ugettext_lazy as _
+
 from rest_framework import exceptions
 from rest_framework.compat import unicode_http_header
 from rest_framework.reverse import _reverse
 from rest_framework.settings import api_settings
 from rest_framework.templatetags.rest_framework import replace_query_param
 from rest_framework.utils.mediatypes import _MediaType
-import re
 
 
 class BaseVersioning(object):
@@ -59,8 +62,8 @@ class URLPathVersioning(BaseVersioning):
     An example URL conf for two views that accept two different versions.
 
     urlpatterns = [
-        url(r'^(?P<version>{v1,v2})/users/$', users_list, name='users-list'),
-        url(r'^(?P<version>{v1,v2})/users/(?P<pk>[0-9]+)/$', users_detail, name='users-detail')
+        url(r'^(?P<version>[v1|v2]+)/users/$', users_list, name='users-list'),
+        url(r'^(?P<version>[v1|v2]+)/users/(?P<pk>[0-9]+)/$', users_detail, name='users-detail')
     ]
 
     GET /1.0/something/ HTTP/1.1
@@ -109,16 +112,19 @@ class NamespaceVersioning(BaseVersioning):
     Host: example.com
     Accept: application/json
     """
-    invalid_version_message = _('Invalid version in URL path.')
+    invalid_version_message = _('Invalid version in URL path. Does not match any version namespace.')
 
     def determine_version(self, request, *args, **kwargs):
         resolver_match = getattr(request, 'resolver_match', None)
         if (resolver_match is None or not resolver_match.namespace):
             return self.default_version
-        version = resolver_match.namespace
-        if not self.is_allowed_version(version):
-            raise exceptions.NotFound(self.invalid_version_message)
-        return version
+
+        # Allow for possibly nested namespaces.
+        possible_versions = resolver_match.namespace.split(':')
+        for version in possible_versions:
+            if self.is_allowed_version(version):
+                return version
+        raise exceptions.NotFound(self.invalid_version_message)
 
     def reverse(self, viewname, args=None, kwargs=None, request=None, format=None, **extra):
         if request.version is not None:
@@ -163,7 +169,7 @@ class QueryParameterVersioning(BaseVersioning):
     invalid_version_message = _('Invalid version in query parameter.')
 
     def determine_version(self, request, *args, **kwargs):
-        version = request.query_params.get(self.version_param)
+        version = request.query_params.get(self.version_param, self.default_version)
         if not self.is_allowed_version(version):
             raise exceptions.NotFound(self.invalid_version_message)
         return version

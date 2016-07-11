@@ -1,9 +1,13 @@
 from __future__ import unicode_literals
+
+from django.contrib.contenttypes.fields import (
+    GenericForeignKey, GenericRelation
+)
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.generic import GenericRelation, GenericForeignKey
 from django.db import models
 from django.test import TestCase
 from django.utils.encoding import python_2_unicode_compatible
+
 from rest_framework import serializers
 
 
@@ -13,7 +17,7 @@ class Tag(models.Model):
     Tags have a descriptive slug, and are attached to an arbitrary object.
     """
     tag = models.SlugField()
-    content_type = models.ForeignKey(ContentType)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     tagged_item = GenericForeignKey('content_type', 'object_id')
 

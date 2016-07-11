@@ -6,17 +6,22 @@ on the request, such as form content or json encoded data.
 """
 from __future__ import unicode_literals
 
+import json
+
 from django.conf import settings
 from django.core.files.uploadhandler import StopFutureHandlers
 from django.http import QueryDict
-from django.http.multipartparser import MultiPartParser as DjangoMultiPartParser
-from django.http.multipartparser import MultiPartParserError, parse_header, ChunkIter
+from django.http.multipartparser import \
+    MultiPartParser as DjangoMultiPartParser
+from django.http.multipartparser import (
+    ChunkIter, MultiPartParserError, parse_header
+)
 from django.utils import six
-from django.utils.six.moves.urllib import parse as urlparse
 from django.utils.encoding import force_text
-from rest_framework.exceptions import ParseError
+from django.utils.six.moves.urllib import parse as urlparse
+
 from rest_framework import renderers
-import json
+from rest_framework.exceptions import ParseError
 
 
 class DataAndFiles(object):
@@ -30,7 +35,6 @@ class BaseParser(object):
     All parsers should extend `BaseParser`, specifying a `media_type`
     attribute, and overriding the `.parse()` method.
     """
-
     media_type = None
 
     def parse(self, stream, media_type=None, parser_context=None):
@@ -46,7 +50,6 @@ class JSONParser(BaseParser):
     """
     Parses JSON-serialized data.
     """
-
     media_type = 'application/json'
     renderer_class = renderers.JSONRenderer
 
@@ -68,7 +71,6 @@ class FormParser(BaseParser):
     """
     Parser for form data.
     """
-
     media_type = 'application/x-www-form-urlencoded'
 
     def parse(self, stream, media_type=None, parser_context=None):
@@ -86,7 +88,6 @@ class MultiPartParser(BaseParser):
     """
     Parser for multipart form data, which may include file data.
     """
-
     media_type = 'multipart/form-data'
 
     def parse(self, stream, media_type=None, parser_context=None):
@@ -121,12 +122,11 @@ class FileUploadParser(BaseParser):
     def parse(self, stream, media_type=None, parser_context=None):
         """
         Treats the incoming bytestream as a raw file upload and returns
-        a `DateAndFiles` object.
+        a `DataAndFiles` object.
 
         `.data` will be None (we expect request body to be a file content).
         `.files` will be a `QueryDict` containing one 'file' element.
         """
-
         parser_context = parser_context or {}
         request = parser_context['request']
         encoding = parser_context.get('encoding', settings.DEFAULT_CHARSET)

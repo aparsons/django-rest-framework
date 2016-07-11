@@ -17,7 +17,7 @@ We have a quarterly maintenance cycle where new members may join the maintenance
 
 #### Current team
 
-The [maintenance team for Q1 2015](https://github.com/tomchristie/django-rest-framework/issues/2190):
+The [maintenance team for Q4 2015](https://github.com/tomchristie/django-rest-framework/issues/2190):
 
 * [@tomchristie](https://github.com/tomchristie/)
 * [@xordoquy](https://github.com/xordoquy/) (Release manager.)
@@ -97,9 +97,15 @@ The following template should be used for the description of the issue, and serv
     Release manager is @***.
     Pull request is #***.
 
+    During development cycle:
+
+    - [ ] Upload the new content to be translated to [transifex](http://www.django-rest-framework.org/topics/project-management/#translations).
+
+
     Checklist:
 
     - [ ] Create pull request for [release notes](https://github.com/tomchristie/django-rest-framework/blob/master/docs/topics/release-notes.md) based on the [*.*.* milestone](https://github.com/tomchristie/django-rest-framework/milestones/***).
+    - [ ] Update the translations from [transifex](http://www.django-rest-framework.org/topics/project-management/#translations).
     - [ ] Ensure the pull request increments the version to `*.*.*` in [`restframework/__init__.py`](https://github.com/tomchristie/django-rest-framework/blob/master/rest_framework/__init__.py).
     - [ ] Confirm with @tomchristie that release is finalized and ready to go.
     - [ ] Ensure that release date is included in pull request.
